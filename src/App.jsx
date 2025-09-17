@@ -3,7 +3,7 @@ import './App.css';
 import Home from './pages/Home/Home';
 import Login from './pages/LoginPage/Login';
 import Register from './pages/RegiseterPage/Register';
-import Navbar from './components/Navbar/Navbar';
+import Navbar from './pages/Navbar/Navbar';
 
 function App() {
   const location = useLocation();
