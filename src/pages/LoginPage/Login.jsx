@@ -32,6 +32,11 @@ function Login() {
         { withCredentials: true }
       );
 
+      // ✅ save token in localStorage if backend sends token
+      if (response.data?.token) {
+        localStorage.setItem("token", response.data.token);
+      }
+
       setMessage(response.data.message || "Logged in successfully ✅");
       navigate("/"); // redirect to home after login
     } catch (err) {

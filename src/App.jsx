@@ -4,6 +4,7 @@ import Home from './pages/Home/Home';
 import Login from './pages/LoginPage/Login';
 import Register from './pages/RegiseterPage/Register';
 import Navbar from './pages/Navbar/Navbar';
+import Profile from './pages/ProfilePage/Profile';
 
 function App() {
   const location = useLocation();
@@ -19,7 +20,9 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path='/profile' element={<Profile />} />
       </Routes>
+
     </>
   );
 }

@@ -1,6 +1,7 @@
 import axios from "axios";
 import { Twitter, Home, Users, Search } from "lucide-react";
 import { useEffect } from "react";
+import { Link } from "react-router-dom";
 
 
 function Navbar() {
@@ -51,12 +52,17 @@ function Navbar() {
 
         {/* Profile */}
         <div className="flex flex-col items-center cursor-pointer hover:text-sky-500">
+
+          <Link to='/profile' >
           <img
             src=""
             alt="profile"
             className="w-7 h-7 rounded-full"
+
+
           />
           <span className="text-[10px]">Me</span>
+          </Link>
         </div>
       </div>
     </nav>
