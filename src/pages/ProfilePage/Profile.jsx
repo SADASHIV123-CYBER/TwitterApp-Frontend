@@ -1,85 +1,126 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
+// src/pages/Profile/Profile.jsx
+import { useState, useEffect, useContext } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import Button from "../../components/Button/Button";
+import { getUserProfile } from "./userService";
+import { AuthContext } from "../../context/AuthContext";
 
 function Profile() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const { user, logout } = useContext(AuthContext);
+  const { userId } = useParams();
+  const navigate = useNavigate();
+
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchProfile = async () => {
       setLoading(true);
-      setError(null);
+      setError("");
       try {
-        // ✅ Correct backend route
-        const res = await axios.get(
-          "https://twitterapp-backend-85c9.onrender.com/api/v1/user",
-          { withCredentials: true } // sends authToken cookie
-        );
-        setUser(res.data.data); // adjust if your backend wraps differently
+        const data = await getUserProfile(userId);
+        setProfile(data);
       } catch (err) {
-        setError("Failed to load profile.");
-        console.error(err);
+        setError(err.message || "Failed to load profile");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUser();
-  }, []);
+    fetchProfile();
+  }, [userId]);
 
-  if (loading) {
-    return (
-      <div className="max-w-2xl mx-auto mt-8 p-6 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse">
-        <div className="h-32 bg-gradient-to-r from-gray-300 to-gray-400"></div>
-        <div className="flex items-center space-x-4 mt-6">
-          <div className="w-24 h-24 rounded-full bg-gray-400"></div>
-          <div>
-            <div className="h-4 bg-gray-400 rounded w-32 mb-2"></div>
-            <div className="h-4 bg-gray-300 rounded w-20"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
-  if (error) return <p className="text-center text-red-500">{error}</p>;
-  if (!user) return <p className="text-center text-gray-500">No user found.</p>;
+  if (loading)
+    return <p className="text-center mt-16 text-gray-500">Loading profile...</p>;
+  if (error)
+    return <p className="text-center mt-16 text-red-600 font-medium">{error}</p>;
+  if (!profile)
+    return <p className="text-center mt-16 text-gray-600">No profile found</p>;
 
   return (
-    <div className="max-w-2xl mx-auto mt-8 bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden">
-      <div className="h-32 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
-      <div className="p-6 relative">
-        <div className="absolute -top-16 left-6">
+    <div className="max-w-3xl mx-auto p-6">
+      {/* Profile Header */}
+      <div className="flex items-center justify-between bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+        <div className="flex items-center gap-6">
           <img
-            src={user.profilePicture || "https://via.placeholder.com/150"}
-            alt="Profile"
-            className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-900 object-cover"
+            src={profile.profilePicture || "/default-avatar.png"}
+            alt={profile.fullName}
+            className="w-28 h-28 rounded-full border-2 border-gray-200 shadow-md object-cover"
           />
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {profile.fullName}
+            </h2>
+            <p className="text-gray-500 text-sm">@{profile.userName}</p>
+            {profile.displayName && (
+              <p className="text-gray-600 italic mt-1">{profile.displayName}</p>
+            )}
+          </div>
         </div>
 
-        <div className="mt-16">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {user.fullName}
-            {user.isVerified && <span className="ml-2 text-blue-500">✔️</span>}
-          </h2>
-          <p className="text-gray-500">@{user.userName}</p>
-          <p className="mt-2 text-gray-700 dark:text-gray-300">{user.bio || "No bio available"}</p>
+        {/* 🚀 Logout button (only for own profile) */}
+        {user && user._id === profile._id && (
+          <Button
+            text="Logout"
+            styleType="error"
+            onClickHandler={handleLogout}
+            className="px-5 py-2 rounded-lg shadow-sm"
+          />
+        )}
+      </div>
 
-          <div className="flex gap-6 mt-4 text-gray-700 dark:text-gray-300">
-            <span>
-              <strong>{user.followers?.length || 0}</strong> Followers
-            </span>
-            <span>
-              <strong>{user.following?.length || 0}</strong> Following
-            </span>
-          </div>
-
-          <p className="mt-2 text-sm text-gray-500">
-            Joined {new Date(user.createdAt).toLocaleDateString()}
+      {/* Details Card */}
+      <div className="mt-8 bg-white rounded-2xl shadow-md p-8 border border-gray-100">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          Profile Details
+        </h3>
+        <div className="space-y-3 text-gray-700">
+          <p>
+            <span className="font-medium">📧 Email:</span> {profile.email}
+          </p>
+          {profile.mobileNumber && (
+            <p>
+              <span className="font-medium">📱 Mobile:</span>{" "}
+              {profile.mobileNumber}
+            </p>
+          )}
+          <p>
+            <span className="font-medium">👤 Role:</span> {profile.role}
+          </p>
+          <p>
+            <span className="font-medium">✅ Verified:</span>{" "}
+            {profile.isVerified ? (
+              <span className="text-green-600 font-semibold">Yes</span>
+            ) : (
+              <span className="text-red-600 font-semibold">No</span>
+            )}
           </p>
         </div>
       </div>
+
+      {/* Action Buttons (only for other users' profiles) */}
+      {user && user._id !== profile._id && (
+        <div className="mt-8 flex gap-4">
+          <Button
+            text="Follow / Unfollow"
+            styleType="primary"
+            onClickHandler={() => alert("Toggle follow")}
+            className="px-5 py-2 rounded-lg shadow-sm"
+          />
+          <Button
+            text="Message"
+            styleType="secondary"
+            onClickHandler={() => alert("Open chat")}
+            className="px-5 py-2 rounded-lg shadow-sm"
+          />
+        </div>
+      )}
     </div>
   );
 }

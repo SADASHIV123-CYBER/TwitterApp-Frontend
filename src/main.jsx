@@ -1,13 +1,23 @@
-import { StrictMode } from 'react'
+// src/main.jsx
+import React from 'react'
 import { createRoot } from 'react-dom/client'
+import App from './App'
 import './index.css'
-import App from './App.jsx'
+import axios from 'axios'
 import { BrowserRouter } from 'react-router-dom'
+import AuthProvider from './context/AuthContext'
+
+// --- axios defaults (important) ---
+axios.defaults.withCredentials = true
+axios.defaults.baseURL = '/' // dev: use Vite proxy; prod: set real baseURL via env if needed
+// -----------------------------------
 
 createRoot(document.getElementById('root')).render(
-  <BrowserRouter>
-  <StrictMode>
-    <App />
-  </StrictMode>
-  </BrowserRouter>
+  <React.StrictMode>
+    <AuthProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </AuthProvider>
+  </React.StrictMode>
 )
