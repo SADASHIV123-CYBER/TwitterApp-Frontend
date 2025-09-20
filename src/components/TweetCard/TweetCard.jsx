@@ -1,4 +1,3 @@
-// src/components/TweetCard/TweetCard.jsx
 import { useState, useEffect, useContext } from "react";
 import Card from "../Card/Card";
 import Button from "../Button/Button";
@@ -13,8 +12,11 @@ import {
   toggleCommentLike,
   updateComment,
   softDeleteComment,
+  updateTweet,
+  deleteTweet
 } from "../../api/tweetApi";
 import { AuthContext } from "../../context/AuthContext";
+import { toggleFollow } from "../../api/userApi";
 
 function idIn(arr = [], id) {
   return arr.some(
@@ -41,15 +43,23 @@ export default function TweetCard({ tweet, onUpdate }) {
   const [loadingAction, setLoadingAction] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [quoteText, setQuoteText] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState("");
+  const [isDeletedLocally, setIsDeletedLocally] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   useEffect(() => {
     setTweetState(tweet);
   }, [tweet]);
 
+  useEffect(() => {
+    if (isEditing) {
+      setEditText(tweetState?.body ?? "");
+    }
+  }, [isEditing, tweetState]);
+
   const applyServerResult = (resObj) => {
     if (!resObj) return;
-
-    // If server returned full tweet object
     if (resObj._id && String(resObj._id) === String(tweetState._id)) {
       if (Array.isArray(resObj.likes) && (resObj.likeCount === undefined || resObj.likeCount === null)) {
         resObj.likeCount = resObj.likes.length;
@@ -58,8 +68,6 @@ export default function TweetCard({ tweet, onUpdate }) {
       if (onUpdate) onUpdate(resObj);
       return;
     }
-
-    // If server returned { updatedTweet }
     if (resObj.updatedTweet && resObj.updatedTweet._id) {
       const t = resObj.updatedTweet;
       if (Array.isArray(t.likes) && (t.likeCount === undefined || t.likeCount === null)) {
@@ -69,8 +77,6 @@ export default function TweetCard({ tweet, onUpdate }) {
       if (onUpdate) onUpdate(t);
       return;
     }
-
-    // quote object (has user && originalTweet)
     if (resObj.user && resObj.originalTweet) {
       const oid = String(resObj.originalTweet);
       if (tweetState && String(tweetState._id) === oid) {
@@ -82,8 +88,6 @@ export default function TweetCard({ tweet, onUpdate }) {
       }
       return;
     }
-
-    // patch by fields
     const patch = {};
     if (Array.isArray(resObj.likes)) {
       patch.likes = resObj.likes;
@@ -92,10 +96,8 @@ export default function TweetCard({ tweet, onUpdate }) {
     if (typeof resObj.likeCount === "number") patch.likeCount = resObj.likeCount;
     if (typeof resObj.retweetCount === "number") patch.retweetCount = resObj.retweetCount;
     if (typeof resObj.quoteCount === "number") patch.quoteCount = resObj.quoteCount;
-
     if (resObj.action === "done") patch.retweetCount = (tweetState.retweetCount || 0) + 1;
     if (resObj.action === "undone") patch.retweetCount = Math.max(0, (tweetState.retweetCount || 0) - 1);
-
     if (Object.keys(patch).length > 0) {
       setTweetState((prev) => {
         const next = { ...prev, ...patch };
@@ -111,8 +113,10 @@ export default function TweetCard({ tweet, onUpdate }) {
       const res = await apiCallPromise;
       const data = pickData(res);
       applyServerResult(data);
+      return data;
     } catch (err) {
       console.error(err);
+      throw err;
     } finally {
       setLoadingAction(false);
     }
@@ -184,30 +188,25 @@ export default function TweetCard({ tweet, onUpdate }) {
     }
   };
 
-  // NEW: update comment handler (called from CommentList)
   const handleUpdateComment = async (commentId, newText) => {
     if (!tweetState?._id) return;
     setLoadingAction(true);
     try {
       const res = await updateComment(tweetState._id, commentId, newText);
       const data = pickData(res);
-      // server may return updated tweet or updated comment container
       if (data && data.updatedTweet) {
         setTweetState(data.updatedTweet);
         if (onUpdate) onUpdate(data.updatedTweet);
       } else {
-        // if the server returned full tweet object or patchable fields
         applyServerResult(data);
       }
     } catch (err) {
       console.error("Failed to update comment", err);
-      // optionally show UI alert
     } finally {
       setLoadingAction(false);
     }
   };
 
-  // NEW: soft delete comment handler
   const handleSoftDeleteComment = async (commentId) => {
     if (!tweetState?._id) return;
     if (!confirm("Delete this comment?")) return;
@@ -245,10 +244,90 @@ export default function TweetCard({ tweet, onUpdate }) {
     }
   };
 
+  const startEdit = () => {
+    setIsEditing(true);
+    setEditText(tweetState?.body ?? "");
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditText("");
+  };
+
+  const saveEdit = async () => {
+    const trimmed = (editText || "").trim();
+    if (!trimmed) {
+      alert("Tweet cannot be empty.");
+      return;
+    }
+    setLoadingAction(true);
+    try {
+      const res = await updateTweet(tweetState._id, trimmed);
+      const data = pickData(res);
+      if (data && data._id) {
+        setTweetState(data);
+        if (onUpdate) onUpdate(data);
+      } else if (data && data.updatedTweet) {
+        setTweetState(data.updatedTweet);
+        if (onUpdate) onUpdate(data.updatedTweet);
+      } else {
+        applyServerResult(data);
+      }
+      setIsEditing(false);
+      setEditText("");
+    } catch (err) {
+      console.error("Failed to save edit:", err);
+      alert(err?.message || "Failed to update tweet");
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const confirmAndDelete = async () => {
+    if (!tweetState?._id) return;
+    if (!confirm("Are you sure you want to delete this tweet?")) return;
+    setLoadingAction(true);
+    try {
+      await deleteTweet(tweetState._id);
+      setIsDeletedLocally(true);
+      if (onUpdate) onUpdate({ _id: tweetState._id, deleted: true });
+    } catch (err) {
+      console.error("Delete tweet failed:", err);
+      alert(err?.message || "Failed to delete tweet");
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleToggleFollow = async () => {
+    const authorObj = tweetState?.author;
+    const authorId = authorObj?._id ?? authorObj;
+    if (!authorId || String(authorId) === String(currentUserId)) return;
+    setFollowLoading(true);
+    try {
+      const result = await toggleFollow(authorId);
+      if (result && result.action) {
+        setTweetState((prev) => {
+          const prevAuthor = prev?.author || {};
+          const isFollowed = prevAuthor?.isFollowed ? false : true;
+          const nextAuthor = { ...prevAuthor, isFollowed };
+          if (result.followerCount !== undefined) nextAuthor.followerCount = result.followerCount;
+          return { ...prev, author: nextAuthor };
+        });
+      }
+    } catch (err) {
+      console.error("Follow toggle failed", err);
+      alert(err?.message || "Failed to toggle follow");
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  if (!tweetState || isDeletedLocally) return null;
+
   const author = tweetState && typeof tweetState.author === "object" ? tweetState.author : null;
   const authorName = (author && (author.displayName || author.userName)) || (typeof tweetState.author === "string" ? tweetState.author : "Unknown");
   const authorPic = (author && (author.profilePicture || author.avatar)) || "/default-avatar.png";
-
   const tweetImage = tweetState.image || tweetState.imagePath || tweetState.tweetImage || tweetState.media || tweetState.imageUrl;
   const getFullImageUrl = (path) => {
     if (!path) return null;
@@ -262,6 +341,8 @@ export default function TweetCard({ tweet, onUpdate }) {
   const retweetCount = tweetState.retweetCount ?? 0;
   const commentCount = tweetState.comments ? tweetState.comments.length : 0;
   const quoteCount = tweetState.quoteCount ?? 0;
+  const isAuthor = String(tweetState.author?._id ?? tweetState.author) === String(currentUserId);
+  const isAuthorFollowed = author?.isFollowed ?? false;
 
   return (
     <Card className="mb-4">
@@ -269,50 +350,59 @@ export default function TweetCard({ tweet, onUpdate }) {
         <img src={authorPic} alt={authorName} className="w-12 h-12 rounded-full object-cover" />
         <div className="flex-1">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium text-gray-900">{authorName}</div>
-              <div className="text-xs text-gray-400">{new Date(tweetState.createdAt).toLocaleString()}</div>
+            <div className="flex items-center gap-3">
+              <div>
+                <div className="font-medium text-gray-900">{authorName}</div>
+                <div className="text-xs text-gray-400">{new Date(tweetState.createdAt).toLocaleString()}</div>
+              </div>
+              {!isAuthor && (
+                <div>
+                  <Button
+                    text={followLoading ? "..." : isAuthorFollowed ? "Unfollow" : "Follow"}
+                    onClickHandler={handleToggleFollow}
+                    disabled={followLoading}
+                    styleType={isAuthorFollowed ? "outline" : "primary"}
+                    className="px-2 py-1 text-xs"
+                  />
+                </div>
+              )}
             </div>
+            {isAuthor && (
+              <div className="flex gap-2">
+                {!isEditing && (
+                  <>
+                    <button onClick={startEdit} className="text-sm text-gray-500 hover:underline">Edit</button>
+                    <button onClick={confirmAndDelete} className="text-sm text-red-500 hover:underline">Delete</button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="mt-3 text-gray-800 whitespace-pre-wrap">{tweetState.body}</div>
-
-          {tweetImage && (
+          {isEditing ? (
             <div className="mt-3">
-              <img src={getFullImageUrl(tweetImage)} alt="tweet media" className="w-full max-h-96 object-cover rounded-md border" />
+              <textarea rows={3} value={editText} onChange={(e) => setEditText(e.target.value)} className="w-full p-2 border rounded" />
+              <div className="mt-2 flex gap-2 justify-end">
+                <Button text="Cancel" onClickHandler={cancelEdit} styleType="secondary" />
+                <Button text="Save" onClickHandler={saveEdit} disabled={loadingAction || !editText.trim()} />
+              </div>
             </div>
+          ) : (
+            <>
+              <div className="mt-3 text-gray-800 whitespace-pre-wrap">{tweetState.body}</div>
+              {tweetImage && (
+                <div className="mt-3">
+                  <img src={getFullImageUrl(tweetImage)} alt="tweet media" className="w-full max-h-96 object-cover rounded-md border" />
+                </div>
+              )}
+            </>
           )}
 
           <div className="mt-4 flex gap-6 text-sm text-gray-600">
-            <Button
-              text={`${liked ? "Unlike" : "Like"} (${likeCount})`}
-              onClickHandler={toggleLike}
-              disabled={loadingAction}
-              styleType="secondary"
-              className="px-0 py-0 text-sm text-gray-600 hover:underline"
-            />
-
-            <Button
-              text={`Retweet (${retweetCount})`}
-              onClickHandler={doRetweet}
-              disabled={loadingAction}
-              styleType="secondary"
-              className="px-0 py-0 text-sm text-gray-600 hover:underline"
-            />
-
-            <Button
-              text={`Comments (${commentCount})`}
-              onClickHandler={() => setShowComments((s) => !s)}
-              styleType="secondary"
-              className="px-0 py-0 text-sm text-gray-600 hover:underline"
-            />
-
-            <Button
-              text={`Quote (${quoteCount})`}
-              onClickHandler={() => setQuoteOpen((s) => !s)}
-              styleType="secondary"
-              className="px-0 py-0 text-sm text-gray-600 hover:underline"
-            />
+            <Button text={`${liked ? "Unlike" : "Like"} (${likeCount})`} onClickHandler={toggleLike} disabled={loadingAction} styleType="secondary" className="px-0 py-0 text-sm text-gray-600 hover:underline" />
+            <Button text={`Retweet (${retweetCount})`} onClickHandler={doRetweet} disabled={loadingAction} styleType="secondary" className="px-0 py-0 text-sm text-gray-600 hover:underline" />
+            <Button text={`Comments (${commentCount})`} onClickHandler={() => setShowComments((s) => !s)} styleType="secondary" className="px-0 py-0 text-sm text-gray-600 hover:underline" />
+            <Button text={`Quote (${quoteCount})`} onClickHandler={() => setQuoteOpen((s) => !s)} styleType="secondary" className="px-0 py-0 text-sm text-gray-600 hover:underline" />
           </div>
 
           {quoteOpen && (
@@ -339,8 +429,8 @@ export default function TweetCard({ tweet, onUpdate }) {
                 currentUserId={currentUserId}
                 onReplyToComment={submitReply}
                 onToggleCommentLike={toggleCmtLike}
-                onUpdateComment={handleUpdateComment}         // NEW
-                onSoftDeleteComment={handleSoftDeleteComment} // NEW
+                onUpdateComment={handleUpdateComment}
+                onSoftDeleteComment={handleSoftDeleteComment}
               />
             </div>
           )}
