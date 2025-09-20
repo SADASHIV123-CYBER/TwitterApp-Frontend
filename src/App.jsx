@@ -2,11 +2,11 @@
 import { Route, Routes, useLocation } from 'react-router-dom';
 import './App.css';
 import Home from './pages/Home/Home';
-import Navbar from './pages/Navbar/Navbar';
 import Login from './pages/LoginPage/Login';
 import ProtectedRoute from './components/Routes/ProtectedRoute';
 import Profile from './pages/ProfilePage/Profile';
 import Register from './pages/RegiseterPage/Register';
+import Navbar from './components/Navbar/Navbar';
 
 function App() {
   const location = useLocation();

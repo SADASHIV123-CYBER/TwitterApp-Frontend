@@ -32,7 +32,6 @@ export default function AuthProvider({ children }) {
     setUser(userData);
   };
 
-  // ✅ Clean logout (no fake API call, just clear state)
   const logout = () => {
     setUser(null);
   };

@@ -6,19 +6,47 @@ import Button from "../../components/Button/Button";
 import { z } from "zod";
 import { Link } from "react-router-dom";
 
-// 🔹 Zod Schema (matches backend validator)
 const registerSchema = z.object({
-  fullName: z.string().min(3, "Full name must be at least 3 characters"),
-  userName: z.string().min(3, "Username must be at least 3 characters"),
-  email: z.string().email("Invalid email format"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  fullName: z
+    .string({ required_error: "Full name is required" })
+    .min(2, "Full name must be at least 2 characters"),
+  userName: z
+    .string({ required_error: "Username is required" })
+    .min(3, "Username must be at least 3 characters")
+    .max(30, "Username must be less than 30 characters")
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+  email: z
+    .string({ required_error: "Email is required" })
+    .email("Invalid email format"),
+  password: z
+    .string({ required_error: "Password is required" })
+    .min(6, "Password must be at least 6 characters"),
   mobileNumber: z
-    .string()
+    .string({ required_error: "Mobile number is required" })
     .regex(/^[0-9]{10}$/, "Mobile number must be 10 digits"),
   displayName: z.string().optional(),
   role: z.enum(["User", "Admin"]).default("User"),
   profilePicture: z.any().optional(),
 });
+
+const serverToClientFieldMap = {
+  username: "userName",
+  user_name: "userName",
+  full_name: "fullName",
+  fullname: "fullName",
+  email: "email",
+  password: "password",
+  mobile: "mobileNumber",
+  mobileNumber: "mobileNumber",
+  displayName: "displayName",
+  profilePicture: "profilePicture",
+  role: "role",
+};
+
+function mapServerKey(key) {
+  if (!key) return key;
+  return serverToClientFieldMap[key] || key;
+}
 
 function Register() {
   const [form, setForm] = useState({
@@ -32,24 +60,80 @@ function Register() {
     profilePicture: null,
   });
 
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
-  const [error, setError] = useState(null);
 
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: null, global: null }));
+  };
 
-  const handleFileChange = (e) =>
-    setForm({ ...form, profilePicture: e.target.files[0] });
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setForm((prev) => ({ ...prev, profilePicture: file }));
+    setErrors((prev) => ({ ...prev, profilePicture: null, global: null }));
+  };
+
+  const parseAndSetServerErrors = (serverData) => {
+    const fieldErrors = {};
+
+    if (Array.isArray(serverData?.errors)) {
+      serverData.errors.forEach((e) => {
+        const key = e.path || e.field || e.param || e.name;
+        const clientKey = mapServerKey(key);
+        fieldErrors[clientKey] = e.message || e.msg || JSON.stringify(e);
+      });
+    } else if (serverData?.errors && typeof serverData.errors === "object") {
+      Object.entries(serverData.errors).forEach(([k, v]) => {
+        const clientKey = mapServerKey(k);
+        if (Array.isArray(v)) fieldErrors[clientKey] = v.join(", ");
+        else if (typeof v === "object" && v.message) fieldErrors[clientKey] = v.message;
+        else fieldErrors[clientKey] = String(v);
+      });
+    } else if (serverData && typeof serverData === "object") {
+      Object.entries(serverData).forEach(([k, v]) => {
+        if (k === "message" || k === "status" || k === "success") return;
+        const lowerK = k.toLowerCase();
+        const clientKey =
+          mapServerKey(k) ||
+          (lowerK.includes("user") ? "userName" :
+           lowerK.includes("name") ? "fullName" :
+           lowerK.includes("email") ? "email" :
+           lowerK.includes("pass") ? "password" :
+           lowerK.includes("mobile") ? "mobileNumber" :
+           k);
+        if (Array.isArray(v)) fieldErrors[clientKey] = v.join(", ");
+        else if (typeof v === "object" && v.message) fieldErrors[clientKey] = v.message;
+        else fieldErrors[clientKey] = String(v);
+      });
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...fieldErrors }));
+      return true;
+    }
+
+    return false;
+  };
 
   const handleRegisterClick = async () => {
     setMessage(null);
-    setError(null);
+    setErrors({});
 
-    // 🔹 Client-side validation with Zod
     const result = registerSchema.safeParse(form);
     if (!result.success) {
-      setError(result.error.errors[0].message);
+      const fieldErrors = {};
+      const zodIssues = result.error?.issues || result.error?.errors || [];
+      zodIssues.forEach((err) => {
+        const path =
+          Array.isArray(err.path) && err.path.length ? err.path[0] :
+          typeof err.path === "string" ? err.path :
+          "global";
+        fieldErrors[path] = err.message || String(err);
+      });
+      setErrors(fieldErrors);
       return;
     }
 
@@ -57,17 +141,17 @@ function Register() {
     try {
       const formData = new FormData();
       Object.keys(form).forEach((key) => {
-        if (form[key] !== null) formData.append(key, form[key]);
+        const value = form[key];
+        if (value === null || value === undefined) return;
+        formData.append(key, value);
       });
 
-      // ✅ use Vite proxy (/api → localhost:4000 in dev)
       const res = await axios.post("/api/v1/user", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      setMessage(res.data.message || "User created successfully ✅");
+      setMessage(res.data.message || "User created successfully");
 
-      // Reset form
       setForm({
         fullName: "",
         userName: "",
@@ -79,11 +163,16 @@ function Register() {
         profilePicture: null,
       });
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.response?.data?.errors?.[0] ||
-          "Something went wrong ❌"
-      );
+      const serverData = err.response?.data;
+      const hadFieldErrors = parseAndSetServerErrors(serverData || {});
+      if (!hadFieldErrors) {
+        const msg =
+          serverData?.message ||
+          (serverData?.error && typeof serverData.error === "string" && serverData.error) ||
+          err.message ||
+          "Something went wrong";
+        setErrors((prev) => ({ ...prev, global: msg }));
+      }
     } finally {
       setLoading(false);
     }
@@ -105,6 +194,8 @@ function Register() {
             placeholder="Enter your full name"
             required
           />
+          {errors.fullName && <p className="text-red-500 text-sm">{errors.fullName}</p>}
+
           <Input
             label="Username"
             name="userName"
@@ -113,6 +204,8 @@ function Register() {
             placeholder="Enter username"
             required
           />
+          {errors.userName && <p className="text-red-500 text-sm">{errors.userName}</p>}
+
           <Input
             label="Email"
             name="email"
@@ -122,6 +215,8 @@ function Register() {
             placeholder="Enter email"
             required
           />
+          {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+
           <Input
             label="Password"
             name="password"
@@ -131,6 +226,8 @@ function Register() {
             placeholder="Enter password"
             required
           />
+          {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+
           <Input
             label="Mobile Number"
             name="mobileNumber"
@@ -140,6 +237,8 @@ function Register() {
             placeholder="Enter mobile number"
             required
           />
+          {errors.mobileNumber && <p className="text-red-500 text-sm">{errors.mobileNumber}</p>}
+
           <Input
             label="Display Name"
             name="displayName"
@@ -147,6 +246,8 @@ function Register() {
             onChange={handleChange}
             placeholder="Enter display name"
           />
+          {errors.displayName && <p className="text-red-500 text-sm">{errors.displayName}</p>}
+
           <Input
             key={form.profilePicture ? form.profilePicture.name : "fileInput"}
             label="Profile Picture"
@@ -155,6 +256,7 @@ function Register() {
             onChange={handleFileChange}
             accept="image/*"
           />
+          {errors.profilePicture && <p className="text-red-500 text-sm">{errors.profilePicture}</p>}
 
           <Button
             text={loading ? "Creating Account..." : "Register"}
@@ -165,10 +267,9 @@ function Register() {
           />
         </div>
 
-        {error && <p className="mt-3 text-red-600 text-sm text-center">{error}</p>}
+        {errors.global && <p className="mt-3 text-red-600 text-sm text-center">{errors.global}</p>}
         {message && <p className="mt-3 text-green-600 text-sm text-center">{message}</p>}
 
-        {/* 🔹 Navigation link */}
         <p className="text-sm text-gray-600 text-center mt-6">
           Already have an account?{" "}
           <Link to="/login" className="text-blue-600 hover:underline">
