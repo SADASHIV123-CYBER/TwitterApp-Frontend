@@ -1,4 +1,6 @@
+// src/components/TweetCard/TweetCard.jsx
 import { useState, useEffect, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import Card from "../Card/Card";
 import Button from "../Button/Button";
 import CommentList from "../Comment/CommentList";
@@ -13,10 +15,10 @@ import {
   updateComment,
   softDeleteComment,
   updateTweet,
-  deleteTweet
+  deleteTweet,
 } from "../../api/tweetApi";
+import { toggleFollow, getUserProfile } from "../../api/userApi";
 import { AuthContext } from "../../context/AuthContext";
-import { toggleFollow } from "../../api/userApi";
 
 function idIn(arr = [], id) {
   return arr.some(
@@ -36,6 +38,7 @@ function pickData(res) {
 export default function TweetCard({ tweet, onUpdate }) {
   const { user } = useContext(AuthContext);
   const currentUserId = user?.id ?? user?._id;
+  const navigate = useNavigate();
 
   const [tweetState, setTweetState] = useState(tweet);
   const [showComments, setShowComments] = useState(false);
@@ -58,10 +61,42 @@ export default function TweetCard({ tweet, onUpdate }) {
     }
   }, [isEditing, tweetState]);
 
+  // If author object doesn't include isFollowed, fetch author's profile once to get it
+  useEffect(() => {
+    const authorObj = tweetState?.author;
+    const authorId = authorObj?._id ?? authorObj;
+    if (!authorId) return;
+
+    // Only fetch if isFollowed is undefined
+    if (typeof authorObj === "object" && authorObj.isFollowed === undefined) {
+      let mounted = true;
+      (async () => {
+        try {
+          const profile = await getUserProfile(authorId);
+          if (!mounted) return;
+          setTweetState((prev) => {
+            const prevAuthor = prev?.author || {};
+            const nextAuthor = { ...prevAuthor, ...(profile ? { isFollowed: profile.isFollowed, followerCount: profile.followerCount } : {}) };
+            return { ...prev, author: nextAuthor };
+          });
+        } catch (err) {
+          // quietly ignore; we still work with optimistic state
+          // console.error("Failed to fetch author profile for follow state", err);
+          console.log(err);
+          
+        }
+      })();
+      return () => { mounted = false; };
+    }
+  }, [tweetState?.author]);
+
   const applyServerResult = (resObj) => {
     if (!resObj) return;
     if (resObj._id && String(resObj._id) === String(tweetState._id)) {
-      if (Array.isArray(resObj.likes) && (resObj.likeCount === undefined || resObj.likeCount === null)) {
+      if (
+        Array.isArray(resObj.likes) &&
+        (resObj.likeCount === undefined || resObj.likeCount === null)
+      ) {
         resObj.likeCount = resObj.likes.length;
       }
       setTweetState(resObj);
@@ -70,7 +105,10 @@ export default function TweetCard({ tweet, onUpdate }) {
     }
     if (resObj.updatedTweet && resObj.updatedTweet._id) {
       const t = resObj.updatedTweet;
-      if (Array.isArray(t.likes) && (t.likeCount === undefined || t.likeCount === null)) {
+      if (
+        Array.isArray(t.likes) &&
+        (t.likeCount === undefined || t.likeCount === null)
+      ) {
         t.likeCount = t.likes.length;
       }
       setTweetState(t);
@@ -96,8 +134,12 @@ export default function TweetCard({ tweet, onUpdate }) {
     if (typeof resObj.likeCount === "number") patch.likeCount = resObj.likeCount;
     if (typeof resObj.retweetCount === "number") patch.retweetCount = resObj.retweetCount;
     if (typeof resObj.quoteCount === "number") patch.quoteCount = resObj.quoteCount;
-    if (resObj.action === "done") patch.retweetCount = (tweetState.retweetCount || 0) + 1;
-    if (resObj.action === "undone") patch.retweetCount = Math.max(0, (tweetState.retweetCount || 0) - 1);
+
+    if (resObj.action === "done")
+      patch.retweetCount = (tweetState.retweetCount || 0) + 1;
+    if (resObj.action === "undone")
+      patch.retweetCount = Math.max(0, (tweetState.retweetCount || 0) - 1);
+
     if (Object.keys(patch).length > 0) {
       setTweetState((prev) => {
         const next = { ...prev, ...patch };
@@ -303,15 +345,26 @@ export default function TweetCard({ tweet, onUpdate }) {
     const authorObj = tweetState?.author;
     const authorId = authorObj?._id ?? authorObj;
     if (!authorId || String(authorId) === String(currentUserId)) return;
+
     setFollowLoading(true);
     try {
+      // Call toggle endpoint
       const result = await toggleFollow(authorId);
-      if (result && result.action) {
+
+      // If backend returns an explicit action, use it.
+      if (result && typeof result.action === "string") {
         setTweetState((prev) => {
           const prevAuthor = prev?.author || {};
-          const isFollowed = prevAuthor?.isFollowed ? false : true;
-          const nextAuthor = { ...prevAuthor, isFollowed };
+          const nextAuthor = { ...prevAuthor, isFollowed: result.action === "followed" };
           if (result.followerCount !== undefined) nextAuthor.followerCount = result.followerCount;
+          return { ...prev, author: nextAuthor };
+        });
+      } else {
+        // fallback: flip local state (optimistic) and apply followerCount if present
+        setTweetState((prev) => {
+          const prevAuthor = prev?.author || {};
+          const nextAuthor = { ...prevAuthor, isFollowed: !prevAuthor?.isFollowed };
+          if (result && result.followerCount !== undefined) nextAuthor.followerCount = result.followerCount;
           return { ...prev, author: nextAuthor };
         });
       }
@@ -323,12 +376,24 @@ export default function TweetCard({ tweet, onUpdate }) {
     }
   };
 
+  const goToProfile = (ev) => {
+    ev?.stopPropagation?.();
+    const authorObj = tweetState?.author;
+    const authorId = authorObj?._id ?? authorObj;
+    if (!authorId) return;
+    // tell profile to hide contact details (Profile reads location.state.hideContact)
+    navigate(`/profile/${authorId}`, { state: { hideContact: true } });
+  };
+
   if (!tweetState || isDeletedLocally) return null;
 
   const author = tweetState && typeof tweetState.author === "object" ? tweetState.author : null;
-  const authorName = (author && (author.displayName || author.userName)) || (typeof tweetState.author === "string" ? tweetState.author : "Unknown");
+  const authorName =
+    (author && (author.displayName || author.userName)) ||
+    (typeof tweetState.author === "string" ? tweetState.author : "Unknown");
   const authorPic = (author && (author.profilePicture || author.avatar)) || "/default-avatar.png";
-  const tweetImage = tweetState.image || tweetState.imagePath || tweetState.tweetImage || tweetState.media || tweetState.imageUrl;
+  const tweetImage =
+    tweetState.image || tweetState.imagePath || tweetState.tweetImage || tweetState.media || tweetState.imageUrl;
   const getFullImageUrl = (path) => {
     if (!path) return null;
     if (path.startsWith("http")) return path;
@@ -346,19 +411,43 @@ export default function TweetCard({ tweet, onUpdate }) {
 
   return (
     <Card className="mb-4">
-      <div className="flex gap-4">
-        <img src={authorPic} alt={authorName} className="w-12 h-12 rounded-full object-cover" />
+      <div className="flex gap-4 items-start">
+        <div
+          onClick={goToProfile}
+          role="button"
+          tabIndex={0}
+          aria-label={`Open profile of ${authorName}`}
+          className="flex-shrink-0 cursor-pointer"
+          onKeyDown={(e) => { if (e.key === "Enter") goToProfile(e); }}
+          style={{ lineHeight: 0 }}
+        >
+          <img
+            src={authorPic}
+            alt={authorName}
+            className="w-12 h-12 rounded-full object-cover block"
+          />
+        </div>
+
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div>
-                <div className="font-medium text-gray-900">{authorName}</div>
+                <div
+                  onClick={goToProfile}
+                  onKeyDown={(e) => { if (e.key === "Enter") goToProfile(e); }}
+                  role="button"
+                  tabIndex={0}
+                  className="font-medium text-gray-900 cursor-pointer select-none"
+                >
+                  {authorName}
+                </div>
                 <div className="text-xs text-gray-400">{new Date(tweetState.createdAt).toLocaleString()}</div>
               </div>
+
               {!isAuthor && (
                 <div>
                   <Button
-                    text={followLoading ? "..." : isAuthorFollowed ? "Unfollow" : "Follow"}
+                    text={followLoading ? "..." : isAuthorFollowed ? "Following" : "Follow"}
                     onClickHandler={handleToggleFollow}
                     disabled={followLoading}
                     styleType={isAuthorFollowed ? "outline" : "primary"}
@@ -367,6 +456,7 @@ export default function TweetCard({ tweet, onUpdate }) {
                 </div>
               )}
             </div>
+
             {isAuthor && (
               <div className="flex gap-2">
                 {!isEditing && (
@@ -390,6 +480,7 @@ export default function TweetCard({ tweet, onUpdate }) {
           ) : (
             <>
               <div className="mt-3 text-gray-800 whitespace-pre-wrap">{tweetState.body}</div>
+
               {tweetImage && (
                 <div className="mt-3">
                   <img src={getFullImageUrl(tweetImage)} alt="tweet media" className="w-full max-h-96 object-cover rounded-md border" />
@@ -399,10 +490,35 @@ export default function TweetCard({ tweet, onUpdate }) {
           )}
 
           <div className="mt-4 flex gap-6 text-sm text-gray-600">
-            <Button text={`${liked ? "Unlike" : "Like"} (${likeCount})`} onClickHandler={toggleLike} disabled={loadingAction} styleType="secondary" className="px-0 py-0 text-sm text-gray-600 hover:underline" />
-            <Button text={`Retweet (${retweetCount})`} onClickHandler={doRetweet} disabled={loadingAction} styleType="secondary" className="px-0 py-0 text-sm text-gray-600 hover:underline" />
-            <Button text={`Comments (${commentCount})`} onClickHandler={() => setShowComments((s) => !s)} styleType="secondary" className="px-0 py-0 text-sm text-gray-600 hover:underline" />
-            <Button text={`Quote (${quoteCount})`} onClickHandler={() => setQuoteOpen((s) => !s)} styleType="secondary" className="px-0 py-0 text-sm text-gray-600 hover:underline" />
+            <Button
+              text={`${liked ? "Unlike" : "Like"} (${likeCount})`}
+              onClickHandler={toggleLike}
+              disabled={loadingAction}
+              styleType="secondary"
+              className="px-0 py-0 text-sm text-gray-600 hover:underline"
+            />
+
+            <Button
+              text={`Retweet (${retweetCount})`}
+              onClickHandler={doRetweet}
+              disabled={loadingAction}
+              styleType="secondary"
+              className="px-0 py-0 text-sm text-gray-600 hover:underline"
+            />
+
+            <Button
+              text={`Comments (${commentCount})`}
+              onClickHandler={() => setShowComments((s) => !s)}
+              styleType="secondary"
+              className="px-0 py-0 text-sm text-gray-600 hover:underline"
+            />
+
+            <Button
+              text={`Quote (${quoteCount})`}
+              onClickHandler={() => setQuoteOpen((s) => !s)}
+              styleType="secondary"
+              className="px-0 py-0 text-sm text-gray-600 hover:underline"
+            />
           </div>
 
           {quoteOpen && (

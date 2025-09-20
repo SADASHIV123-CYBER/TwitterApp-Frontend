@@ -13,14 +13,6 @@ import {
   getUserQuotes,
 } from "./userService";
 
-/*
-Profile page now shows:
-- Profile header and stats
-- Tabs: Tweets | Retweets | Quotes
-- Each tab lazy-loads its data and uses TweetCard for rendering.
-- Retweets and Quotes render a small label (who retweeted / quoted) and then show the original tweet via TweetCard.
-*/
-
 function EmptyState({ message }) {
   return <p className="text-center py-6 text-gray-500">{message}</p>;
 }
@@ -34,30 +26,29 @@ export default function Profile() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState("");
 
-  // tabs
   const [activeTab, setActiveTab] = useState("tweets"); // "tweets" | "retweets" | "quotes"
 
-  // tweets state
-  const [tweets, setTweets] = useState([]);
+  // Tweet / Retweet / Quote states
+  const [tweets, setTweets] = useState(null);
   const [tweetsLoading, setTweetsLoading] = useState(false);
   const [tweetsError, setTweetsError] = useState("");
 
-  // retweets state
-  const [retweets, setRetweets] = useState([]);
+  const [retweets, setRetweets] = useState(null);
   const [retweetsLoading, setRetweetsLoading] = useState(false);
   const [retweetsError, setRetweetsError] = useState("");
 
-  // quotes state
-  const [quotes, setQuotes] = useState([]);
+  const [quotes, setQuotes] = useState(null);
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [quotesError, setQuotesError] = useState("");
 
   const [followLoading, setFollowLoading] = useState(false);
 
+  // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
   }, [authLoading, user, navigate]);
 
+  // Fetch user profile
   useEffect(() => {
     if (!userId) return;
 
@@ -68,7 +59,7 @@ export default function Profile() {
         const data = await getUserProfile(userId);
         setProfile(data);
       } catch (err) {
-        setProfileError(err?.message || String(err) || "Failed to load profile");
+        setProfileError(err?.message || "Failed to load profile");
       } finally {
         setLoadingProfile(false);
       }
@@ -77,7 +68,7 @@ export default function Profile() {
     fetchProfile();
   }, [userId]);
 
-  // fetch functions
+  // Fetch functions
   const fetchTweets = useCallback(async () => {
     setTweetsLoading(true);
     setTweetsError("");
@@ -85,7 +76,8 @@ export default function Profile() {
       const data = await getUserTweets(userId);
       setTweets(Array.isArray(data) ? data : []);
     } catch (err) {
-      setTweetsError(err?.message || String(err) || "Failed to load tweets");
+      setTweetsError(err?.message || "Failed to load tweets");
+      setTweets([]);
     } finally {
       setTweetsLoading(false);
     }
@@ -98,7 +90,8 @@ export default function Profile() {
       const data = await getUserRetweets(userId);
       setRetweets(Array.isArray(data) ? data : []);
     } catch (err) {
-      setRetweetsError(err?.message || String(err) || "Failed to load retweets");
+      setRetweetsError(err?.message || "Failed to load retweets");
+      setRetweets([]);
     } finally {
       setRetweetsLoading(false);
     }
@@ -111,41 +104,55 @@ export default function Profile() {
       const data = await getUserQuotes(userId);
       setQuotes(Array.isArray(data) ? data : []);
     } catch (err) {
-      setQuotesError(err?.message || String(err) || "Failed to load quotes");
+      setQuotesError(err?.message || "Failed to load quotes");
+      setQuotes([]);
     } finally {
       setQuotesLoading(false);
     }
   }, [userId]);
 
-  // load data for the active tab lazily
+  // Lazy-load on tab change
   useEffect(() => {
     if (!userId) return;
-    if (activeTab === "tweets" && tweets.length === 0 && !tweetsLoading) fetchTweets();
-    if (activeTab === "retweets" && retweets.length === 0 && !retweetsLoading) fetchRetweets();
-    if (activeTab === "quotes" && quotes.length === 0 && !quotesLoading) fetchQuotes();
-  }, [activeTab, fetchTweets, fetchRetweets, fetchQuotes, tweets, retweets, quotes, userId, tweetsLoading, retweetsLoading, quotesLoading]);
 
+    if (activeTab === "tweets" && tweets === null && !tweetsLoading) fetchTweets();
+    if (activeTab === "retweets" && retweets === null && !retweetsLoading) fetchRetweets();
+    if (activeTab === "quotes" && quotes === null && !quotesLoading) fetchQuotes();
+  }, [activeTab, userId, tweets, retweets, quotes, tweetsLoading, retweetsLoading, quotesLoading, fetchTweets, fetchRetweets, fetchQuotes]);
+
+  // Logout handler
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
+  // Follow/unfollow handler
   const handleToggleFollow = async () => {
     if (!profile) return;
     setFollowLoading(true);
     try {
       const result = await toggleFollowService(profile._id);
-      // backend should return updated follower/following counts or updated profile
-      if (result && result.followerCount !== undefined) {
-        setProfile((prev) => ({ ...prev, followerCount: result.followerCount, followingCount: result.followingCount ?? prev.followingCount }));
-      } else if (result && result._id) {
-        // if backend returned updated profile
-        setProfile(result);
-      } else {
-        // fallback — refetch profile after toggling
-        const refreshed = await getUserProfile(userId);
-        setProfile(refreshed);
-      }
+
+      setProfile((prev) => {
+        if (!prev) return prev;
+        const prevFollowerCount = prev.followerCount ?? 0;
+
+        let isFollowed = prev.isFollowed ?? false;
+        if (result && typeof result.action === "string") {
+          isFollowed = result.action === "followed";
+        } else if (result && typeof result.followerCount === "number") {
+          isFollowed = result.followerCount > prevFollowerCount;
+        } else {
+          isFollowed = !isFollowed;
+        }
+
+        return {
+          ...prev,
+          followerCount: result?.followerCount ?? prev.followerCount,
+          followingCount: result?.followingCount ?? prev.followingCount,
+          isFollowed,
+        };
+      });
     } catch (err) {
       console.error("Follow toggle failed", err);
       alert(err?.message || "Failed to follow/unfollow");
@@ -154,23 +161,14 @@ export default function Profile() {
     }
   };
 
-  if (authLoading || loadingProfile) {
-    return <p className="text-center mt-16 text-gray-500">Loading...</p>;
-  }
-
-  if (profileError) {
-    return <p className="text-center mt-16 text-red-600 font-medium">{profileError}</p>;
-  }
-
-  if (!profile) {
-    return <p className="text-center mt-16 text-gray-600">No profile found</p>;
-  }
+  if (authLoading || loadingProfile) return <p className="text-center mt-16 text-gray-500">Loading...</p>;
+  if (profileError) return <p className="text-center mt-16 text-red-600 font-medium">{profileError}</p>;
+  if (!profile) return <p className="text-center mt-16 text-gray-600">No profile found</p>;
 
   const isOwnProfile = user && String(user._id) === String(profile._id);
 
-  // small helpers for rendering special items
-  function RetweetItem({ rt }) {
-    // rt expected shape: { _id, user: {...}, originalTweet: {...} }
+  // Retweet & Quote Components
+  const RetweetItem = ({ rt }) => {
     const actor = rt.user || rt.retweetedBy || null;
     const orig = rt.originalTweet || rt.tweet || rt;
     return (
@@ -178,13 +176,12 @@ export default function Profile() {
         <div className="text-xs text-gray-500 mb-1">
           Retweeted by <span className="font-medium">{actor?.displayName || actor?.userName || "User"}</span>
         </div>
-        <TweetCard tweet={orig} onUpdate={() => {}} />
+        {orig ? <TweetCard tweet={orig} onUpdate={() => {}} /> : <EmptyState message="Original tweet not available" />}
       </div>
     );
-  }
+  };
 
-  function QuoteItem({ q }) {
-    // q expected shape: { _id, user: {...}, originalTweet: {...}, text }
+  const QuoteItem = ({ q }) => {
     const actor = q.user || null;
     const orig = q.originalTweet || q.tweet || null;
     return (
@@ -193,7 +190,6 @@ export default function Profile() {
           Quoted by <span className="font-medium">{actor?.displayName || actor?.userName || "User"}</span>
         </div>
 
-        {/* show the quote text as separate card above the original */}
         <div className="mb-2">
           <Card className="p-3 bg-gray-50">
             <div className="text-sm text-gray-800">{q.text}</div>
@@ -203,7 +199,7 @@ export default function Profile() {
         {orig ? <TweetCard tweet={orig} onUpdate={() => {}} /> : <EmptyState message="Original tweet not available" />}
       </div>
     );
-  }
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -224,16 +220,11 @@ export default function Profile() {
 
         <div className="flex flex-col items-end gap-3">
           {isOwnProfile ? (
-            <Button
-              text="Logout"
-              styleType="error"
-              onClickHandler={handleLogout}
-              className="px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300"
-            />
+            <Button text="Logout" styleType="error" onClickHandler={handleLogout} className="px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300" />
           ) : (
             <div className="flex gap-3">
               <Button
-                text={followLoading ? "Loading..." : (profile.isFollowed ? "Unfollow" : "Follow")}
+                text={followLoading ? "Loading..." : profile.isFollowed ? "Unfollow" : "Follow"}
                 styleType="primary"
                 onClickHandler={handleToggleFollow}
                 disabled={followLoading}
@@ -257,7 +248,7 @@ export default function Profile() {
         </Card>
         <Card className="text-center">
           <p className="text-gray-500 text-sm">Tweets</p>
-          <p className="text-2xl font-bold">{profile.tweetCount ?? (profile.tweets ? profile.tweets.length : 0)}</p>
+          <p className="text-2xl font-bold">{Array.isArray(tweets) ? tweets.length : 0}</p>
         </Card>
         <Card className="text-center">
           <p className="text-gray-500 text-sm">Role</p>
@@ -268,37 +259,24 @@ export default function Profile() {
       {/* Tabs */}
       <div className="mt-8">
         <div className="flex gap-3 border-b pb-2">
-          <button
-            className={`px-3 py-2 ${activeTab === "tweets" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-600"}`}
-            onClick={() => setActiveTab("tweets")}
-          >
-            Tweets
-          </button>
-          <button
-            className={`px-3 py-2 ${activeTab === "retweets" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-600"}`}
-            onClick={() => setActiveTab("retweets")}
-          >
-            Retweets
-          </button>
-          <button
-            className={`px-3 py-2 ${activeTab === "quotes" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-600"}`}
-            onClick={() => setActiveTab("quotes")}
-          >
-            Quotes
-          </button>
+          {["tweets", "retweets", "quotes"].map((tab) => (
+            <button
+              key={tab}
+              className={`px-3 py-2 ${activeTab === tab ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-600"}`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 space-y-4">
           {activeTab === "tweets" && (
             <>
               {tweetsLoading && <EmptyState message="Loading tweets..." />}
               {tweetsError && <p className="text-red-600">{tweetsError}</p>}
-              {!tweetsLoading && tweets.length === 0 && <EmptyState message="No tweets yet" />}
-              <div className="space-y-4">
-                {tweets.map((t) => (
-                  <TweetCard key={t._id} tweet={t} onUpdate={() => {}} />
-                ))}
-              </div>
+              {!tweetsLoading && Array.isArray(tweets) && tweets.length === 0 && <EmptyState message="No tweets yet" />}
+              {Array.isArray(tweets) && tweets.map((t) => <TweetCard key={t._id} tweet={t} onUpdate={() => {}} />)}
             </>
           )}
 
@@ -306,12 +284,8 @@ export default function Profile() {
             <>
               {retweetsLoading && <EmptyState message="Loading retweets..." />}
               {retweetsError && <p className="text-red-600">{retweetsError}</p>}
-              {!retweetsLoading && retweets.length === 0 && <EmptyState message="No retweets yet" />}
-              <div className="space-y-4">
-                {retweets.map((r) => (
-                  <RetweetItem key={r._id} rt={r} />
-                ))}
-              </div>
+              {!retweetsLoading && Array.isArray(retweets) && retweets.length === 0 && <EmptyState message="No retweets yet" />}
+              {Array.isArray(retweets) && retweets.map((r) => <RetweetItem key={r._id} rt={r} />)}
             </>
           )}
 
@@ -319,18 +293,14 @@ export default function Profile() {
             <>
               {quotesLoading && <EmptyState message="Loading quotes..." />}
               {quotesError && <p className="text-red-600">{quotesError}</p>}
-              {!quotesLoading && quotes.length === 0 && <EmptyState message="No quotes yet" />}
-              <div className="space-y-4">
-                {quotes.map((q) => (
-                  <QuoteItem key={q._id} q={q} />
-                ))}
-              </div>
+              {!quotesLoading && Array.isArray(quotes) && quotes.length === 0 && <EmptyState message="No quotes yet" />}
+              {Array.isArray(quotes) && quotes.map((q) => <QuoteItem key={q._id} q={q} />)}
             </>
           )}
         </div>
       </div>
 
-      {/* Profile details */}
+      {/* Profile Details */}
       <Card className="mt-8">
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Profile Details</h3>
         <div className="space-y-3 text-gray-700">
