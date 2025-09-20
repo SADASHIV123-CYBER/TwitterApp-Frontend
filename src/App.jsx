@@ -7,14 +7,11 @@ import ProtectedRoute from './components/Routes/ProtectedRoute';
 import Profile from './pages/ProfilePage/Profile';
 import Register from './pages/RegiseterPage/Register';
 import Navbar from './components/Navbar/Navbar';
+import FollowListPage from './pages/FollowListPage/FollowList';
 
 function App() {
   const location = useLocation();
 
-  // ❌ Old: Only homepage
-  // const showNavbar = location.pathname === '/';
-
-  // ✅ New: Hide only on login page
   const hideNavbar = location.pathname === '/login';
 
   return (
@@ -33,6 +30,7 @@ function App() {
         />
         <Route path="/login" element={<Login />} />
         <Route path='/register' element={<Register />} />
+        <Route path='/followList' element={<FollowListPage />} />
       </Routes>
 
     </>

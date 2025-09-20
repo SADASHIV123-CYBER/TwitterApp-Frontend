@@ -10,7 +10,7 @@ const API_BASE = `${API_BASE_ROOT}/api/v1/tweets`;
 const client = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
-  withCredentials: true, // enable if backend uses cookies/session auth
+  withCredentials: true,
   headers: {
     Accept: "application/json",
   },
@@ -18,7 +18,6 @@ const client = axios.create({
 
 function unwrap(response) {
   if (!response) return null;
-  // backend wrapper: { success, data, message }
   if (response.data && response.data.data !== undefined) return response.data.data;
   if (response.data !== undefined) return response.data;
   return response;
@@ -38,13 +37,6 @@ function throwError(err) {
 
 /* ---------- Tweets (CRUD + image upload) ---------- */
 
-/**
- * Create tweet.
- * Accepts:
- *  - FormData (fields: 'tweet' (text) and 'tweetImage' (file))
- *  - plain string (tweet text)
- *  - object { tweet: "...", ... } (JSON)
- */
 export async function createTweet(payload) {
   try {
     if (payload instanceof FormData) {
@@ -53,13 +45,10 @@ export async function createTweet(payload) {
       });
       return unwrap(res);
     }
-
     if (typeof payload === "string") {
       const res = await client.post("/", { tweet: payload });
       return unwrap(res);
     }
-
-    // assume object-like JSON
     const res = await client.post("/", payload);
     return unwrap(res);
   } catch (err) {
@@ -87,7 +76,6 @@ export async function getTweetById(id) {
 
 export async function updateTweet(id, tweetText) {
   try {
-    // backend expects { tweet: "..." } in many places
     const res = await client.put(`/${id}`, { tweet: tweetText });
     return unwrap(res);
   } catch (err) {
@@ -134,11 +122,6 @@ export async function retweet(tweetId) {
 }
 
 /* ---------- Quote ---------- */
-/**
- * quoteTextOrForm:
- *  - string: { text }
- *  - FormData: must contain 'text' and optionally 'quoteImage' file
- */
 export async function quoteTweet(tweetId, quoteTextOrForm) {
   try {
     if (quoteTextOrForm instanceof FormData) {
@@ -166,12 +149,10 @@ export async function deleteQuote(quoteId) {
 
 /* ---------- Comments & Replies ---------- */
 
-/**
- * Add comment: POST /:id/comment  body: { text }
- */
 export async function addComment(tweetId, text) {
   try {
-    const res = await client.post(`/${tweetId}/comment`, { text });
+    // POST /:tweetId/comments
+    const res = await client.post(`/${tweetId}/comments`, { text });
     return unwrap(res);
   } catch (err) {
     throwError(err);
@@ -179,11 +160,12 @@ export async function addComment(tweetId, text) {
 }
 
 /**
- * Update comment: PUT /:tweetId/comment/:commentId body: { text }
+ * Update comment:
+ * PUT /:tweetId/comments/:commentId body: { text }
  */
 export async function updateComment(tweetId, commentId, text) {
   try {
-    const res = await client.put(`/${tweetId}/comment/${commentId}`, { text });
+    const res = await client.put(`/${tweetId}/comments/${commentId}`, { text });
     return unwrap(res);
   } catch (err) {
     throwError(err);
@@ -191,7 +173,8 @@ export async function updateComment(tweetId, commentId, text) {
 }
 
 /**
- * Reply to comment: POST /:tweetId/comments/:commentId/replies body: { text }
+ * Reply to comment:
+ * POST /:tweetId/comments/:commentId/replies body: { text }
  */
 export async function replyToComment(tweetId, commentId, text) {
   try {
@@ -203,7 +186,8 @@ export async function replyToComment(tweetId, commentId, text) {
 }
 
 /**
- * Toggle comment like: POST /:tweetId/comments/:commentId/like
+ * Toggle comment like:
+ * POST /:tweetId/comments/:commentId/like
  */
 export async function toggleCommentLike(tweetId, commentId) {
   try {
@@ -215,18 +199,17 @@ export async function toggleCommentLike(tweetId, commentId) {
 }
 
 /**
- * Soft delete comment: DELETE /:tweetId/comment/:commentId/soft
+ * Soft delete comment:
+ * DELETE /:tweetId/comments/:commentId/soft
  */
 export async function softDeleteComment(tweetId, commentId) {
   try {
-    const res = await client.delete(`/${tweetId}/comment/${commentId}/soft`);
+    const res = await client.delete(`/${tweetId}/comments/${commentId}/soft`);
     return unwrap(res);
   } catch (err) {
     throwError(err);
   }
 }
-
-
 
 /* ---------- Export default convenience object ---------- */
 export default {

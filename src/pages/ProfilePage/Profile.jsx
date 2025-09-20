@@ -1,6 +1,5 @@
-// src/pages/Profile/Profile.jsx
 import { useState, useEffect, useContext, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import Button from "../../components/Button/Button";
 import Card from "../../components/Card/Card";
 import TweetCard from "../../components/TweetCard/TweetCard";
@@ -26,9 +25,8 @@ export default function Profile() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState("");
 
-  const [activeTab, setActiveTab] = useState("tweets"); // "tweets" | "retweets" | "quotes"
+  const [activeTab, setActiveTab] = useState("tweets");
 
-  // Tweet / Retweet / Quote states
   const [tweets, setTweets] = useState(null);
   const [tweetsLoading, setTweetsLoading] = useState(false);
   const [tweetsError, setTweetsError] = useState("");
@@ -43,15 +41,12 @@ export default function Profile() {
 
   const [followLoading, setFollowLoading] = useState(false);
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !user) navigate("/login");
   }, [authLoading, user, navigate]);
 
-  // Fetch user profile
   useEffect(() => {
     if (!userId) return;
-
     const fetchProfile = async () => {
       setLoadingProfile(true);
       setProfileError("");
@@ -64,11 +59,9 @@ export default function Profile() {
         setLoadingProfile(false);
       }
     };
-
     fetchProfile();
   }, [userId]);
 
-  // Fetch functions
   const fetchTweets = useCallback(async () => {
     setTweetsLoading(true);
     setTweetsError("");
@@ -111,32 +104,26 @@ export default function Profile() {
     }
   }, [userId]);
 
-  // Lazy-load on tab change
   useEffect(() => {
     if (!userId) return;
-
     if (activeTab === "tweets" && tweets === null && !tweetsLoading) fetchTweets();
     if (activeTab === "retweets" && retweets === null && !retweetsLoading) fetchRetweets();
     if (activeTab === "quotes" && quotes === null && !quotesLoading) fetchQuotes();
   }, [activeTab, userId, tweets, retweets, quotes, tweetsLoading, retweetsLoading, quotesLoading, fetchTweets, fetchRetweets, fetchQuotes]);
 
-  // Logout handler
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
-  // Follow/unfollow handler
   const handleToggleFollow = async () => {
     if (!profile) return;
     setFollowLoading(true);
     try {
       const result = await toggleFollowService(profile._id);
-
       setProfile((prev) => {
         if (!prev) return prev;
         const prevFollowerCount = prev.followerCount ?? 0;
-
         let isFollowed = prev.isFollowed ?? false;
         if (result && typeof result.action === "string") {
           isFollowed = result.action === "followed";
@@ -145,7 +132,6 @@ export default function Profile() {
         } else {
           isFollowed = !isFollowed;
         }
-
         return {
           ...prev,
           followerCount: result?.followerCount ?? prev.followerCount,
@@ -167,14 +153,58 @@ export default function Profile() {
 
   const isOwnProfile = user && String(user._id) === String(profile._id);
 
-  // Retweet & Quote Components
   const RetweetItem = ({ rt }) => {
-    const actor = rt.user || rt.retweetedBy || null;
+    const [actorName, setActorName] = useState("");
+    useEffect(() => {
+      let mounted = true;
+      const actor = rt.user || rt.retweetedBy || null;
+      const resolveName = async () => {
+        if (!actor) {
+          if (mounted) setActorName("Unknown");
+          return;
+        }
+        if (typeof actor === "object") {
+          const name = actor.displayName || actor.userName || actor.fullName;
+          if (name) {
+            if (mounted) setActorName(name);
+            return;
+          }
+          const id = actor._id || actor.id;
+          if (!id) {
+            if (mounted) setActorName("Unknown");
+            return;
+          }
+          try {
+            const profile = await getUserProfile(id);
+            const pName = profile?.displayName || profile?.userName || profile?.fullName || "Unknown";
+            if (mounted) setActorName(pName);
+          } catch (e) {
+            if (mounted) setActorName("Unknown");
+          }
+          return;
+        }
+        const id = String(actor);
+        (async () => {
+          try {
+            const profile = await getUserProfile(id);
+            const pName = profile?.displayName || profile?.userName || profile?.fullName || "Unknown";
+            if (mounted) setActorName(pName);
+          } catch (e) {
+            if (mounted) setActorName("Unknown");
+          }
+        })();
+      };
+      resolveName();
+      return () => {
+        mounted = false;
+      };
+    }, [rt]);
+
     const orig = rt.originalTweet || rt.tweet || rt;
     return (
       <div className="mb-4">
         <div className="text-xs text-gray-500 mb-1">
-          Retweeted by <span className="font-medium">{actor?.displayName || actor?.userName || "User"}</span>
+          Retweeted by <span className="font-medium">{actorName || "Unknown"}</span>
         </div>
         {orig ? <TweetCard tweet={orig} onUpdate={() => {}} /> : <EmptyState message="Original tweet not available" />}
       </div>
@@ -182,20 +212,63 @@ export default function Profile() {
   };
 
   const QuoteItem = ({ q }) => {
-    const actor = q.user || null;
+    const [actorName, setActorName] = useState("");
+    useEffect(() => {
+      let mounted = true;
+      const actor = q.user || null;
+      const resolveName = async () => {
+        if (!actor) {
+          if (mounted) setActorName("Unknown");
+          return;
+        }
+        if (typeof actor === "object") {
+          const name = actor.displayName || actor.userName || actor.fullName;
+          if (name) {
+            if (mounted) setActorName(name);
+            return;
+          }
+          const id = actor._id || actor.id;
+          if (!id) {
+            if (mounted) setActorName("Unknown");
+            return;
+          }
+          try {
+            const profile = await getUserProfile(id);
+            const pName = profile?.displayName || profile?.userName || profile?.fullName || "Unknown";
+            if (mounted) setActorName(pName);
+          } catch (e) {
+            if (mounted) setActorName("Unknown");
+          }
+          return;
+        }
+        const id = String(actor);
+        (async () => {
+          try {
+            const profile = await getUserProfile(id);
+            const pName = profile?.displayName || profile?.userName || profile?.fullName || "Unknown";
+            if (mounted) setActorName(pName);
+          } catch (e) {
+            if (mounted) setActorName("Unknown");
+          }
+        })();
+      };
+      resolveName();
+      return () => {
+        mounted = false;
+      };
+    }, [q]);
+
     const orig = q.originalTweet || q.tweet || null;
     return (
       <div className="mb-4">
         <div className="text-xs text-gray-500 mb-1">
-          Quoted by <span className="font-medium">{actor?.displayName || actor?.userName || "User"}</span>
+          Quoted by <span className="font-medium">{actorName || "Unknown"}</span>
         </div>
-
         <div className="mb-2">
           <Card className="p-3 bg-gray-50">
             <div className="text-sm text-gray-800">{q.text}</div>
           </Card>
         </div>
-
         {orig ? <TweetCard tweet={orig} onUpdate={() => {}} /> : <EmptyState message="Original tweet not available" />}
       </div>
     );
@@ -203,7 +276,6 @@ export default function Profile() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      {/* Profile Header */}
       <Card className="flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-6">
           <img
@@ -236,15 +308,18 @@ export default function Profile() {
         </div>
       </Card>
 
-      {/* Stats */}
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="text-center">
-          <p className="text-gray-500 text-sm">Followers</p>
-          <p className="text-2xl font-bold">{profile.followerCount ?? 0}</p>
+          <Link to={`/followList?tab=followers&userId=${profile._id}`} className="block">
+            <p className="text-gray-500 text-sm">Followers</p>
+            <p className="text-2xl font-bold">{profile.followerCount ?? 0}</p>
+          </Link>
         </Card>
         <Card className="text-center">
-          <p className="text-gray-500 text-sm">Following</p>
-          <p className="text-2xl font-bold">{profile.followingCount ?? 0}</p>
+          <Link to={`/followList?tab=following&userId=${profile._id}`} className="block">
+            <p className="text-gray-500 text-sm">Following</p>
+            <p className="text-2xl font-bold">{profile.followingCount ?? 0}</p>
+          </Link>
         </Card>
         <Card className="text-center">
           <p className="text-gray-500 text-sm">Tweets</p>
@@ -256,7 +331,6 @@ export default function Profile() {
         </Card>
       </div>
 
-      {/* Tabs */}
       <div className="mt-8">
         <div className="flex gap-3 border-b pb-2">
           {["tweets", "retweets", "quotes"].map((tab) => (
@@ -300,7 +374,6 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Profile Details */}
       <Card className="mt-8">
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Profile Details</h3>
         <div className="space-y-3 text-gray-700">
