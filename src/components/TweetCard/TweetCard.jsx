@@ -1,5 +1,4 @@
-// src/components/TweetCard/TweetCard.jsx
-import { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Card from "../Card/Card";
 import Button from "../Button/Button";
@@ -67,7 +66,6 @@ export default function TweetCard({ tweet, onUpdate }) {
     const authorId = authorObj?._id ?? authorObj;
     if (!authorId) return;
 
-    // Only fetch if isFollowed is undefined
     if (typeof authorObj === "object" && authorObj.isFollowed === undefined) {
       let mounted = true;
       (async () => {
@@ -76,21 +74,22 @@ export default function TweetCard({ tweet, onUpdate }) {
           if (!mounted) return;
           setTweetState((prev) => {
             const prevAuthor = prev?.author || {};
-            const nextAuthor = { ...prevAuthor, ...(profile ? { isFollowed: profile.isFollowed, followerCount: profile.followerCount } : {}) };
+            const nextAuthor = {
+              ...prevAuthor,
+              ...(profile ? { isFollowed: profile.isFollowed, followerCount: profile.followerCount } : {}),
+            };
             return { ...prev, author: nextAuthor };
           });
         } catch (err) {
-          // quietly ignore; we still work with optimistic state
-          // console.error("Failed to fetch author profile for follow state", err);
+          // ignore
           console.log(err);
-          
         }
       })();
       return () => { mounted = false; };
     }
   }, [tweetState?.author]);
 
-  const applyServerResult = (resObj) => {
+  const applyServerResult = useCallback((resObj) => {
     if (!resObj) return;
     if (resObj._id && String(resObj._id) === String(tweetState._id)) {
       if (
@@ -147,9 +146,9 @@ export default function TweetCard({ tweet, onUpdate }) {
         return next;
       });
     }
-  };
+  }, [onUpdate, tweetState]);
 
-  const doAction = async (apiCallPromise) => {
+  const doAction = useCallback(async (apiCallPromise) => {
     setLoadingAction(true);
     try {
       const res = await apiCallPromise;
@@ -162,20 +161,20 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setLoadingAction(false);
     }
-  };
+  }, [applyServerResult]);
 
-  const toggleLike = async () => {
+  const toggleLike = useCallback(async () => {
     if (!tweetState?._id) return;
     const liked = idIn(tweetState.likes || [], currentUserId);
     await doAction(liked ? unlikeTweet(tweetState._id) : likeTweet(tweetState._id));
-  };
+  }, [tweetState, currentUserId, doAction]);
 
-  const doRetweet = async () => {
+  const doRetweet = useCallback(async () => {
     if (!tweetState?._id) return;
     await doAction(retweet(tweetState._id));
-  };
+  }, [tweetState, doAction]);
 
-  const submitComment = async () => {
+  const submitComment = useCallback(async () => {
     const text = commentText.trim();
     if (!text) return;
     setLoadingAction(true);
@@ -195,9 +194,9 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setLoadingAction(false);
     }
-  };
+  }, [commentText, tweetState, applyServerResult, onUpdate]);
 
-  const submitReply = async (commentId, text) => {
+  const submitReply = useCallback(async (commentId, text) => {
     if (!commentId) return;
     setLoadingAction(true);
     try {
@@ -209,9 +208,9 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setLoadingAction(false);
     }
-  };
+  }, [tweetState, applyServerResult]);
 
-  const toggleCmtLike = async (commentId) => {
+  const toggleCmtLike = useCallback(async (commentId) => {
     if (!commentId) return;
     setLoadingAction(true);
     try {
@@ -228,9 +227,9 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setLoadingAction(false);
     }
-  };
+  }, [tweetState, applyServerResult, onUpdate]);
 
-  const handleUpdateComment = async (commentId, newText) => {
+  const handleUpdateComment = useCallback(async (commentId, newText) => {
     if (!tweetState?._id) return;
     setLoadingAction(true);
     try {
@@ -247,9 +246,9 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setLoadingAction(false);
     }
-  };
+  }, [tweetState, applyServerResult, onUpdate]);
 
-  const handleSoftDeleteComment = async (commentId) => {
+  const handleSoftDeleteComment = useCallback(async (commentId) => {
     if (!tweetState?._id) return;
     if (!confirm("Delete this comment?")) return;
     setLoadingAction(true);
@@ -267,9 +266,9 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setLoadingAction(false);
     }
-  };
+  }, [tweetState, applyServerResult, onUpdate]);
 
-  const submitQuote = async () => {
+  const submitQuote = useCallback(async () => {
     const text = quoteText.trim();
     if (!text) return;
     setLoadingAction(true);
@@ -284,19 +283,19 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setLoadingAction(false);
     }
-  };
+  }, [quoteText, tweetState, applyServerResult]);
 
-  const startEdit = () => {
+  const startEdit = useCallback(() => {
     setIsEditing(true);
     setEditText(tweetState?.body ?? "");
-  };
+  }, [tweetState]);
 
-  const cancelEdit = () => {
+  const cancelEdit = useCallback(() => {
     setIsEditing(false);
     setEditText("");
-  };
+  }, []);
 
-  const saveEdit = async () => {
+  const saveEdit = useCallback(async () => {
     const trimmed = (editText || "").trim();
     if (!trimmed) {
       alert("Tweet cannot be empty.");
@@ -323,9 +322,9 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setLoadingAction(false);
     }
-  };
+  }, [editText, tweetState, applyServerResult, onUpdate]);
 
-  const confirmAndDelete = async () => {
+  const confirmAndDelete = useCallback(async () => {
     if (!tweetState?._id) return;
     if (!confirm("Are you sure you want to delete this tweet?")) return;
     setLoadingAction(true);
@@ -339,19 +338,17 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setLoadingAction(false);
     }
-  };
+  }, [tweetState, onUpdate]);
 
-  const handleToggleFollow = async () => {
+  const handleToggleFollow = useCallback(async () => {
     const authorObj = tweetState?.author;
     const authorId = authorObj?._id ?? authorObj;
     if (!authorId || String(authorId) === String(currentUserId)) return;
 
     setFollowLoading(true);
     try {
-      // Call toggle endpoint
       const result = await toggleFollow(authorId);
 
-      // If backend returns an explicit action, use it.
       if (result && typeof result.action === "string") {
         setTweetState((prev) => {
           const prevAuthor = prev?.author || {};
@@ -360,7 +357,6 @@ export default function TweetCard({ tweet, onUpdate }) {
           return { ...prev, author: nextAuthor };
         });
       } else {
-        // fallback: flip local state (optimistic) and apply followerCount if present
         setTweetState((prev) => {
           const prevAuthor = prev?.author || {};
           const nextAuthor = { ...prevAuthor, isFollowed: !prevAuthor?.isFollowed };
@@ -374,35 +370,40 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setFollowLoading(false);
     }
-  };
+  }, [tweetState, currentUserId]);
 
-  const goToProfile = (ev) => {
+  const goToProfile = useCallback((ev) => {
     ev?.stopPropagation?.();
     const authorObj = tweetState?.author;
     const authorId = authorObj?._id ?? authorObj;
     if (!authorId) return;
-    // tell profile to hide contact details (Profile reads location.state.hideContact)
     navigate(`/profile/${authorId}`, { state: { hideContact: true } });
-  };
+  }, [tweetState, navigate]);
 
   if (!tweetState || isDeletedLocally) return null;
 
-  const author = tweetState && typeof tweetState.author === "object" ? tweetState.author : null;
-  const authorName =
+  // memoized derived values
+  const author = useMemo(() => (tweetState && typeof tweetState.author === "object" ? tweetState.author : null), [tweetState]);
+  const authorName = useMemo(() =>
     (author && (author.displayName || author.userName)) ||
-    (typeof tweetState.author === "string" ? tweetState.author : "Unknown");
-  const authorPic = (author && (author.profilePicture || author.avatar)) || "/default-avatar.png";
-  const tweetImage =
-    tweetState.image || tweetState.imagePath || tweetState.tweetImage || tweetState.media || tweetState.imageUrl;
-  const getFullImageUrl = (path) => {
+    (typeof tweetState.author === "string" ? tweetState.author : "Unknown"),
+  [author, tweetState.author]);
+  const authorPic = useMemo(() => (author && (author.profilePicture || author.avatar)) || "/default-avatar.png", [author]);
+
+  const tweetImage = useMemo(() =>
+    tweetState.image || tweetState.imagePath || tweetState.tweetImage || tweetState.media || tweetState.imageUrl,
+    [tweetState]
+  );
+
+  const getFullImageUrl = useCallback((path) => {
     if (!path) return null;
     if (path.startsWith("http")) return path;
     const clean = path.replace(/^\/+/, "");
     return `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/${clean}`;
-  };
+  }, []);
 
-  const liked = idIn(tweetState.likes || [], currentUserId);
-  const likeCount = tweetState.likeCount ?? (tweetState.likes ? tweetState.likes.length : 0);
+  const liked = useMemo(() => idIn(tweetState.likes || [], currentUserId), [tweetState.likes, currentUserId]);
+  const likeCount = useMemo(() => tweetState.likeCount ?? (tweetState.likes ? tweetState.likes.length : 0), [tweetState]);
   const retweetCount = tweetState.retweetCount ?? 0;
   const commentCount = tweetState.comments ? tweetState.comments.length : 0;
   const quoteCount = tweetState.quoteCount ?? 0;

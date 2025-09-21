@@ -1,5 +1,4 @@
-// src/pages/Home/Feed.jsx
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import TweetComposer from "../../components/TweetComposer/TweetComposer";
 import TweetCard from "../../components/TweetCard/TweetCard";
 import { getTweets } from "../../api/tweetApi";
@@ -27,26 +26,23 @@ export default function Home() {
     fetchTweets();
   }, [fetchTweets]);
 
-  const handleCreated = (payload) => {
+  const handleCreated = useCallback((payload) => {
     if (!payload) return;
     if (payload.refresh) {
       fetchTweets();
       return;
     }
-    // prepend new tweet
     setTweets((prev) => [payload, ...(prev || [])]);
-  };
+  }, [fetchTweets]);
 
-  const handleTweetUpdate = (updatedTweet) => {
+  const handleTweetUpdate = useCallback((updatedTweet) => {
     if (!updatedTweet) return;
-    // if deleted signal, remove from feed
     if (updatedTweet.deleted) {
       setTweets((prev) => (prev || []).filter((t) => String(t._id) !== String(updatedTweet._id)));
       return;
     }
-    // replace tweet in list (backend may return populated tweet)
     setTweets((prev) => (prev || []).map((t) => (String(t._id) === String(updatedTweet._id) ? updatedTweet : t)));
-  };
+  }, []);
 
   return (
     <div className="max-w-3xl mx-auto p-6">

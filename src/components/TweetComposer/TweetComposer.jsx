@@ -1,5 +1,4 @@
-// src/components/TweetComposer/TweetComposer.jsx
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Button from "../Button/Button";
 import Card from "../Card/Card";
 import { createTweet } from "../../api/tweetApi";
@@ -20,7 +19,7 @@ export default function TweetComposer({ onCreated }) {
     return () => URL.revokeObjectURL(url);
   }, [imageFile]);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = useCallback((e) => {
     const f = e.target.files?.[0] ?? null;
     if (!f) return;
     if (!["image/jpeg", "image/png"].includes(f.type)) {
@@ -32,11 +31,11 @@ export default function TweetComposer({ onCreated }) {
       return;
     }
     setImageFile(f);
-  };
+  }, []);
 
-  const removeImage = () => setImageFile(null);
+  const removeImage = useCallback(() => setImageFile(null), []);
 
-  const submit = async () => {
+  const submit = useCallback(async () => {
     const body = text.trim();
     if (!body && !imageFile) return;
     setLoading(true);
@@ -45,19 +44,15 @@ export default function TweetComposer({ onCreated }) {
       if (imageFile) {
         const fd = new FormData();
         fd.append("tweet", body);
-        // backend expects field name 'tweetImage' per your router
         fd.append("tweetImage", imageFile);
         created = await createTweet(fd);
       } else {
         created = await createTweet(body);
       }
 
-      // created may be the tweet object or wrapper
       const tweetObj = created ?? null;
 
       if (onCreated) {
-        // If backend returned tweet with author/populated fields, prepend it.
-        // Otherwise instruct parent to refresh.
         const hasAuthor =
           tweetObj &&
           typeof tweetObj === "object" &&
@@ -78,7 +73,7 @@ export default function TweetComposer({ onCreated }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [text, imageFile, onCreated]);
 
   return (
     <Card className="p-4">
