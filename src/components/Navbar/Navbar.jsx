@@ -40,7 +40,7 @@ function NavbarComponent() {
   }, [user]);
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-white shadow-md px-8 py-3 flex items-center justify-between h-16">
+    <nav className="sticky top-0 z-50 w-full bg-slate-50 shadow-md px-8 py-3 flex items-center justify-between h-16">
       {/* Logo */}
       <Link to="/" className="flex items-center space-x-2">
         <Twitter className="text-sky-500 w-8 h-8" />
@@ -104,7 +104,6 @@ function NavbarComponent() {
   );
 }
 
-// ✅ wrap with React.memo to avoid re-renders unless props/context change
 const Navbar = memo(NavbarComponent);
 
 export default Navbar;

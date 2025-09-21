@@ -34,7 +34,7 @@ function Login() {
 
       if (verifyRes?.data?.success && verifyRes.data.user) {
         setUser(verifyRes.data.user);
-        navigate(`/profile/${verifyRes.data.user._id}`);
+        navigate(`/`);
         return;
       }
 
