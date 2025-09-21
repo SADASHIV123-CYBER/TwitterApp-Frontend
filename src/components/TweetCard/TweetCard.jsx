@@ -1,4 +1,6 @@
+// src/components/TweetCard/TweetCard.jsx
 import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Card from "../Card/Card";
 import Button from "../Button/Button";
@@ -60,7 +62,7 @@ export default function TweetCard({ tweet, onUpdate }) {
     }
   }, [isEditing, tweetState]);
 
-  // If author object doesn't include isFollowed, fetch author's profile once to get it
+  // fetch author follow state if missing
   useEffect(() => {
     const authorObj = tweetState?.author;
     const authorId = authorObj?._id ?? authorObj;
@@ -82,49 +84,56 @@ export default function TweetCard({ tweet, onUpdate }) {
           });
         } catch (err) {
           // ignore
-          console.log(err);
         }
       })();
       return () => { mounted = false; };
     }
   }, [tweetState?.author]);
 
+  // schedule parent updates asynchronously (avoids setState-in-render errors)
+  const callOnUpdate = useCallback((payload) => {
+    if (!onUpdate) return;
+    if (typeof queueMicrotask === "function") {
+      queueMicrotask(() => onUpdate(payload));
+    } else if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => onUpdate(payload));
+    } else {
+      setTimeout(() => onUpdate(payload), 0);
+    }
+  }, [onUpdate]);
+
   const applyServerResult = useCallback((resObj) => {
     if (!resObj) return;
+
     if (resObj._id && String(resObj._id) === String(tweetState._id)) {
-      if (
-        Array.isArray(resObj.likes) &&
-        (resObj.likeCount === undefined || resObj.likeCount === null)
-      ) {
+      if (Array.isArray(resObj.likes) && (resObj.likeCount === undefined || resObj.likeCount === null)) {
         resObj.likeCount = resObj.likes.length;
       }
       setTweetState(resObj);
-      if (onUpdate) onUpdate(resObj);
+      callOnUpdate(resObj);
       return;
     }
+
     if (resObj.updatedTweet && resObj.updatedTweet._id) {
       const t = resObj.updatedTweet;
-      if (
-        Array.isArray(t.likes) &&
-        (t.likeCount === undefined || t.likeCount === null)
-      ) {
+      if (Array.isArray(t.likes) && (t.likeCount === undefined || t.likeCount === null)) {
         t.likeCount = t.likes.length;
       }
       setTweetState(t);
-      if (onUpdate) onUpdate(t);
+      callOnUpdate(t);
       return;
     }
+
     if (resObj.user && resObj.originalTweet) {
       const oid = String(resObj.originalTweet);
       if (tweetState && String(tweetState._id) === oid) {
-        setTweetState((prev) => {
-          const next = { ...prev, quoteCount: (prev.quoteCount || 0) + 1 };
-          if (onUpdate) onUpdate(next);
-          return next;
-        });
+        const next = { ...tweetState, quoteCount: (tweetState.quoteCount || 0) + 1 };
+        setTweetState(next);
+        callOnUpdate(next);
       }
       return;
     }
+
     const patch = {};
     if (Array.isArray(resObj.likes)) {
       patch.likes = resObj.likes;
@@ -142,11 +151,11 @@ export default function TweetCard({ tweet, onUpdate }) {
     if (Object.keys(patch).length > 0) {
       setTweetState((prev) => {
         const next = { ...prev, ...patch };
-        if (onUpdate) onUpdate(next);
+        callOnUpdate(next);
         return next;
       });
     }
-  }, [onUpdate, tweetState]);
+  }, [tweetState, callOnUpdate]);
 
   const doAction = useCallback(async (apiCallPromise) => {
     setLoadingAction(true);
@@ -156,24 +165,93 @@ export default function TweetCard({ tweet, onUpdate }) {
       applyServerResult(data);
       return data;
     } catch (err) {
-      console.error(err);
       throw err;
     } finally {
       setLoadingAction(false);
     }
   }, [applyServerResult]);
 
+  // Helper: fetch latest tweet from server to reconcile after flaky responses
+  const fetchLatestTweetFromServer = useCallback(async (attempt = 1) => {
+    const API_ROOT = import.meta.env.VITE_API_URL || "";
+    const url = `${API_ROOT}/api/v1/tweets/${encodeURIComponent(String(tweetState._id))}`;
+    try {
+      const res = await axios.get(url, { withCredentials: true });
+      const serverData = pickData(res);
+      return serverData;
+    } catch (err) {
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 400));
+        return fetchLatestTweetFromServer(attempt + 1);
+      }
+      return null;
+    }
+  }, [tweetState?._id]);
+
+  // LIKE
   const toggleLike = useCallback(async () => {
     if (!tweetState?._id) return;
     const liked = idIn(tweetState.likes || [], currentUserId);
-    await doAction(liked ? unlikeTweet(tweetState._id) : likeTweet(tweetState._id));
-  }, [tweetState, currentUserId, doAction]);
 
+    setTweetState((prev) => {
+      const prevLikes = Array.isArray(prev.likes) ? [...prev.likes] : [];
+      const nextLikes = liked ? prevLikes.filter((x) => String(x) !== String(currentUserId)) : [currentUserId, ...prevLikes];
+      const next = { ...prev, likes: nextLikes, likeCount: nextLikes.length };
+      callOnUpdate(next);
+      return next;
+    });
+
+    try {
+      await doAction(liked ? unlikeTweet(tweetState._id) : likeTweet(tweetState._id));
+    } catch (err) {
+      const server = await fetchLatestTweetFromServer();
+      if (server) {
+        setTweetState(server);
+        callOnUpdate(server);
+      } else {
+        // best-effort rollback
+        setTweetState((prev) => {
+          const prevLikes = Array.isArray(prev.likes) ? [...prev.likes] : [];
+          const nowLiked = idIn(prevLikes, currentUserId);
+          const nextLikes = nowLiked ? prevLikes.filter((x) => String(x) !== String(currentUserId)) : [currentUserId, ...prevLikes];
+          const next = { ...prev, likes: nextLikes, likeCount: nextLikes.length };
+          callOnUpdate(next);
+          return next;
+        });
+      }
+      alert(err?.message || "Failed to toggle like");
+    }
+  }, [tweetState, currentUserId, doAction, callOnUpdate, fetchLatestTweetFromServer]);
+
+  // RETWEET (optimistic + reconcile)
   const doRetweet = useCallback(async () => {
     if (!tweetState?._id) return;
-    await doAction(retweet(tweetState._id));
-  }, [tweetState, doAction]);
 
+    setTweetState((prev) => {
+      const next = { ...prev, retweetCount: (prev.retweetCount || 0) + 1 };
+      callOnUpdate(next);
+      return next;
+    });
+
+    try {
+      await doAction(retweet(tweetState._id));
+    } catch (err) {
+      const server = await fetchLatestTweetFromServer();
+      if (server) {
+        setTweetState(server);
+        callOnUpdate(server);
+        return;
+      }
+      setTweetState((prev) => {
+        const next = { ...prev, retweetCount: Math.max(0, (prev.retweetCount || 1) - 1) };
+        callOnUpdate(next);
+        return next;
+      });
+      alert(err?.message || "Retweet failed");
+    }
+  }, [tweetState, doAction, callOnUpdate, fetchLatestTweetFromServer]);
+
+  // COMMENT
   const submitComment = useCallback(async () => {
     const text = commentText.trim();
     if (!text) return;
@@ -183,19 +261,21 @@ export default function TweetCard({ tweet, onUpdate }) {
       const data = pickData(res);
       if (data && data.comments) {
         setTweetState(data);
-        if (onUpdate) onUpdate(data);
+        callOnUpdate(data);
       } else {
         applyServerResult(data);
       }
       setCommentText("");
       setShowComments(true);
     } catch (err) {
-      console.error(err);
+      console.error("Add comment failed", err);
+      alert(err?.message || "Failed to add comment");
     } finally {
       setLoadingAction(false);
     }
-  }, [commentText, tweetState, applyServerResult, onUpdate]);
+  }, [commentText, tweetState, applyServerResult, callOnUpdate]);
 
+  // REPLY
   const submitReply = useCallback(async (commentId, text) => {
     if (!commentId) return;
     setLoadingAction(true);
@@ -204,12 +284,14 @@ export default function TweetCard({ tweet, onUpdate }) {
       const data = pickData(res);
       applyServerResult(data);
     } catch (err) {
-      console.error(err);
+      console.error("Reply failed", err);
+      alert(err?.message || "Failed to reply");
     } finally {
       setLoadingAction(false);
     }
   }, [tweetState, applyServerResult]);
 
+  // TOGGLE COMMENT LIKE
   const toggleCmtLike = useCallback(async (commentId) => {
     if (!commentId) return;
     setLoadingAction(true);
@@ -218,17 +300,19 @@ export default function TweetCard({ tweet, onUpdate }) {
       const data = pickData(res);
       if (data && data.updatedTweet) {
         setTweetState(data.updatedTweet);
-        if (onUpdate) onUpdate(data.updatedTweet);
+        callOnUpdate(data.updatedTweet);
       } else {
         applyServerResult(data);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Toggle comment like failed", err);
+      alert(err?.message || "Failed to toggle comment like");
     } finally {
       setLoadingAction(false);
     }
-  }, [tweetState, applyServerResult, onUpdate]);
+  }, [tweetState, applyServerResult, callOnUpdate]);
 
+  // UPDATE COMMENT
   const handleUpdateComment = useCallback(async (commentId, newText) => {
     if (!tweetState?._id) return;
     setLoadingAction(true);
@@ -237,17 +321,19 @@ export default function TweetCard({ tweet, onUpdate }) {
       const data = pickData(res);
       if (data && data.updatedTweet) {
         setTweetState(data.updatedTweet);
-        if (onUpdate) onUpdate(data.updatedTweet);
+        callOnUpdate(data.updatedTweet);
       } else {
         applyServerResult(data);
       }
     } catch (err) {
       console.error("Failed to update comment", err);
+      alert(err?.message || "Failed to update comment");
     } finally {
       setLoadingAction(false);
     }
-  }, [tweetState, applyServerResult, onUpdate]);
+  }, [tweetState, applyServerResult, callOnUpdate]);
 
+  // SOFT DELETE COMMENT
   const handleSoftDeleteComment = useCallback(async (commentId) => {
     if (!tweetState?._id) return;
     if (!confirm("Delete this comment?")) return;
@@ -257,20 +343,29 @@ export default function TweetCard({ tweet, onUpdate }) {
       const data = pickData(res);
       if (data && data.updatedTweet) {
         setTweetState(data.updatedTweet);
-        if (onUpdate) onUpdate(data.updatedTweet);
+        callOnUpdate(data.updatedTweet);
       } else {
         applyServerResult(data);
       }
     } catch (err) {
       console.error("Failed to delete comment", err);
+      alert(err?.message || "Failed to delete comment");
     } finally {
       setLoadingAction(false);
     }
-  }, [tweetState, applyServerResult, onUpdate]);
+  }, [tweetState, applyServerResult, callOnUpdate]);
 
+  // QUOTE (optimistic + reconcile)
   const submitQuote = useCallback(async () => {
     const text = quoteText.trim();
     if (!text) return;
+
+    setTweetState((prev) => {
+      const next = { ...prev, quoteCount: (prev.quoteCount || 0) + 1 };
+      callOnUpdate(next);
+      return next;
+    });
+
     setLoadingAction(true);
     try {
       const res = await quoteTweet(tweetState._id, text);
@@ -279,11 +374,26 @@ export default function TweetCard({ tweet, onUpdate }) {
       setQuoteText("");
       setQuoteOpen(false);
     } catch (err) {
-      console.error(err);
+      const server = await fetchLatestTweetFromServer();
+      if (server) {
+        setTweetState(server);
+        callOnUpdate(server);
+        setQuoteText("");
+        setQuoteOpen(false);
+        setLoadingAction(false);
+        return;
+      }
+      setTweetState((prev) => {
+        const next = { ...prev, quoteCount: Math.max(0, (prev.quoteCount || 1) - 1) };
+        callOnUpdate(next);
+        return next;
+      });
+      console.error("Quote failed:", err);
+      alert(err?.message || "Failed to quote");
     } finally {
       setLoadingAction(false);
     }
-  }, [quoteText, tweetState, applyServerResult]);
+  }, [quoteText, tweetState, applyServerResult, callOnUpdate, fetchLatestTweetFromServer]);
 
   const startEdit = useCallback(() => {
     setIsEditing(true);
@@ -307,10 +417,10 @@ export default function TweetCard({ tweet, onUpdate }) {
       const data = pickData(res);
       if (data && data._id) {
         setTweetState(data);
-        if (onUpdate) onUpdate(data);
+        callOnUpdate(data);
       } else if (data && data.updatedTweet) {
         setTweetState(data.updatedTweet);
-        if (onUpdate) onUpdate(data.updatedTweet);
+        callOnUpdate(data.updatedTweet);
       } else {
         applyServerResult(data);
       }
@@ -322,7 +432,7 @@ export default function TweetCard({ tweet, onUpdate }) {
     } finally {
       setLoadingAction(false);
     }
-  }, [editText, tweetState, applyServerResult, onUpdate]);
+  }, [editText, tweetState, applyServerResult, callOnUpdate]);
 
   const confirmAndDelete = useCallback(async () => {
     if (!tweetState?._id) return;
@@ -331,14 +441,14 @@ export default function TweetCard({ tweet, onUpdate }) {
     try {
       await deleteTweet(tweetState._id);
       setIsDeletedLocally(true);
-      if (onUpdate) onUpdate({ _id: tweetState._id, deleted: true });
+      callOnUpdate({ _id: tweetState._id, deleted: true });
     } catch (err) {
       console.error("Delete tweet failed:", err);
       alert(err?.message || "Failed to delete tweet");
     } finally {
       setLoadingAction(false);
     }
-  }, [tweetState, onUpdate]);
+  }, [tweetState, callOnUpdate]);
 
   const handleToggleFollow = useCallback(async () => {
     const authorObj = tweetState?.author;
@@ -382,7 +492,6 @@ export default function TweetCard({ tweet, onUpdate }) {
 
   if (!tweetState || isDeletedLocally) return null;
 
-  // memoized derived values
   const author = useMemo(() => (tweetState && typeof tweetState.author === "object" ? tweetState.author : null), [tweetState]);
   const authorName = useMemo(() =>
     (author && (author.displayName || author.userName)) ||
@@ -541,6 +650,7 @@ export default function TweetCard({ tweet, onUpdate }) {
 
           {showComments && (
             <div className="mt-4">
+              {/* IMPORTANT: pass the exact prop names CommentList expects */}
               <CommentList
                 comments={tweetState.comments || []}
                 currentUserId={currentUserId}
