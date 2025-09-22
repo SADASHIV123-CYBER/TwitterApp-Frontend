@@ -3,24 +3,21 @@ import axios from "axios";
 
 const DEFAULT_BACKEND = "https://twitterapp-backend-85c9.onrender.com";
 
-/**
- * API root: prefer VITE_API_URL, otherwise fall back to deployed backend.
- * Trim trailing slashes to avoid double // in URLs.
- */
+// Prefer VITE_API_URL if defined, else fallback to deployed backend
 export const API_ROOT = (import.meta.env.VITE_API_URL || DEFAULT_BACKEND).replace(/\/+$/, "");
 
-/**
- * Shared axios instance for all API modules
- * - withCredentials: true so cookies (httpOnly) are sent automatically
- * - baseURL left blank here; per-module baseURLs will be used
- */
+// Shared axios client
 export const client = axios.create({
+  baseURL: `${API_ROOT}/api/v1`, // ✅ always points to backend
   timeout: 15000,
-  withCredentials: true,
+  withCredentials: true, // ✅ send cookies
   headers: {
     Accept: "application/json",
   },
 });
 
-// Optional: a central response interceptor could be added here in future
-// client.interceptors.response.use(response => response, error => Promise.reject(error));
+// Optional: add interceptors for logging/debugging
+// client.interceptors.response.use(
+//   res => res,
+//   err => Promise.reject(err)
+// );

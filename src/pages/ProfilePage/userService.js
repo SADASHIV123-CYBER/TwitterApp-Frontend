@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_ROOT = import.meta.env.VITE_API_URL || "";
+const API_ROOT = 'https://twitterapp-backend-85c9.onrender.com' 
+// import.meta.env.VITE_API_URL || "";
 const API_BASE = `${API_ROOT}/api/v1`;
 
 const normalizeId = (id) => {
