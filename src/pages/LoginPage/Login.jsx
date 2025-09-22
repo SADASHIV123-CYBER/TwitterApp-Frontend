@@ -23,14 +23,21 @@ function Login() {
 
     try {
       // 1) Login
-      const loginRes = await client.post("/auth", form, {
-        headers: { "Content-Type": "application/json" },
-      });
-      console.log("loginRes:", loginRes.status, loginRes.data);
+      // const loginRes = await client.post("/auth", form, {
+      //   headers: { "Content-Type": "application/json" },
+      // });
+      // console.log("loginRes:", loginRes.status, loginRes.data);
 
-      // 2) Verify user
-      const verifyRes = await client.get("/verify");
-      console.log("verifyRes:", verifyRes.status, verifyRes.data);
+      // // 2) Verify user
+      // const verifyRes = await client.get("/verify");
+      // console.log("verifyRes:", verifyRes.status, verifyRes.data);
+
+      const loginRes = await client.post("/auth", form); // ✅ only /auth
+console.log("loginRes:", loginRes.status, loginRes.data);
+
+// Verify user
+const verifyRes = await client.get("/verify"); // ✅ only /verify
+console.log("verifyRes:", verifyRes.status, verifyRes.data);
 
       if (verifyRes?.data?.success && verifyRes.data.user) {
         setUser(verifyRes.data.user);
