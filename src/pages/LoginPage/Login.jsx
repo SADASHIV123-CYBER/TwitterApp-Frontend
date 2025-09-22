@@ -1,9 +1,10 @@
 import { useState, useContext } from "react";
-import { useNavigate, Link } from "react-router-dom";
+// import axios from "axios";
 import Input from "../../components/Input/Input";
 import Button from "../../components/Button/Button";
+import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
-import { client } from "../../api/client"; 
+import { client } from "../../api/client";
 
 function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -23,11 +24,13 @@ function Login() {
 
     try {
       // 1) Login
-      const loginRes = await client.post("/auth/login", form); // ✅ fixed endpoint
+      const loginRes = await client.post("/api/v1/auth", form, {
+        headers: { "Content-Type": "application/json" },
+      });
       console.log("loginRes:", loginRes.status, loginRes.data);
 
       // 2) Verify user
-      const verifyRes = await client.get("/auth/me"); // ✅ fixed endpoint
+      const verifyRes = await client.get("/api/v1/verify");
       console.log("verifyRes:", verifyRes.status, verifyRes.data);
 
       if (verifyRes?.data?.success && verifyRes.data.user) {
