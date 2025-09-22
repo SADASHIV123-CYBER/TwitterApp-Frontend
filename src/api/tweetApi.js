@@ -1,38 +1,30 @@
 // src/api/tweetApi.js
-import axios from "axios";
+import { client, API_ROOT } from "./client.js";
 
-const API_BASE_ROOT = import.meta.env.VITE_API_URL || ""; // e.g. "http://localhost:4000"
-const API_BASE = `${API_BASE_ROOT}/api/v1/tweets`;
+const API_BASE = `${API_ROOT}/api/v1/tweets`;
 
 /**
- * Shared axios instance so we can enable cookies, timeouts, interceptors later.
+ * Utility to extract data consistently:
+ * - prefer response.data.data
+ * - fallback to response.data
  */
-const client = axios.create({
-  baseURL: API_BASE,
-  timeout: 15000,
-  withCredentials: true,
-  headers: {
-    Accept: "application/json",
-  },
-});
-
-function unwrap(response) {
-  if (!response) return null;
-  if (response.data && response.data.data !== undefined) return response.data.data;
-  if (response.data !== undefined) return response.data;
-  return response;
+function unwrap(res) {
+  if (!res) return null;
+  if (res.data && res.data.data !== undefined) return res.data.data;
+  if (res.data !== undefined) return res.data;
+  return res;
 }
 
-function throwError(err) {
+function makeError(err, fallbackMessage = "Unknown error") {
   const message =
     err?.response?.data?.message ||
     err?.response?.data?.error ||
     err?.message ||
-    "Unknown error";
+    fallbackMessage;
   const e = new Error(message);
   e.raw = err;
   e.status = err?.response?.status ?? null;
-  throw e;
+  return e;
 }
 
 /* ---------- Tweets (CRUD + image upload) ---------- */
@@ -40,84 +32,84 @@ function throwError(err) {
 export async function createTweet(payload) {
   try {
     if (payload instanceof FormData) {
-      const res = await client.post("/", payload, {
+      const res = await client.post(`${API_BASE}/`, payload, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       return unwrap(res);
     }
     if (typeof payload === "string") {
-      const res = await client.post("/", { tweet: payload });
+      const res = await client.post(`${API_BASE}/`, { tweet: payload });
       return unwrap(res);
     }
-    const res = await client.post("/", payload);
+    const res = await client.post(`${API_BASE}/`, payload);
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to create tweet");
   }
 }
 
 export async function getTweets() {
   try {
-    const res = await client.get("/");
+    const res = await client.get(`${API_BASE}/`);
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to fetch tweets");
   }
 }
 
 export async function getTweetById(id) {
   try {
-    const res = await client.get(`/${id}`);
+    const res = await client.get(`${API_BASE}/${encodeURIComponent(id)}`);
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to fetch tweet");
   }
 }
 
 export async function updateTweet(id, tweetText) {
   try {
-    const res = await client.put(`/${id}`, { tweet: tweetText });
+    const res = await client.put(`${API_BASE}/${encodeURIComponent(id)}`, { tweet: tweetText });
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to update tweet");
   }
 }
 
 export async function deleteTweet(id) {
   try {
-    const res = await client.delete(`/${id}`);
+    const res = await client.delete(`${API_BASE}/${encodeURIComponent(id)}`);
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to delete tweet");
   }
 }
 
 /* ---------- Like / Unlike ---------- */
 export async function likeTweet(tweetId) {
   try {
-    const res = await client.post(`/${tweetId}/like`);
+    const res = await client.post(`${API_BASE}/${encodeURIComponent(tweetId)}/like`);
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to like tweet");
   }
 }
 
 export async function unlikeTweet(tweetId) {
   try {
-    const res = await client.post(`/${tweetId}/unlike`);
+    const res = await client.post(`${API_BASE}/${encodeURIComponent(tweetId)}/unlike`);
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to unlike tweet");
   }
 }
 
 /* ---------- Retweet (toggle) ---------- */
 export async function retweet(tweetId) {
   try {
-    const res = await client.post(`/${tweetId}/retweet`);
+    const res = await client.post(`${API_BASE}/${encodeURIComponent(tweetId)}/retweet`);
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to retweet");
   }
 }
 
@@ -125,25 +117,25 @@ export async function retweet(tweetId) {
 export async function quoteTweet(tweetId, quoteTextOrForm) {
   try {
     if (quoteTextOrForm instanceof FormData) {
-      const res = await client.post(`/${tweetId}/quote`, quoteTextOrForm, {
+      const res = await client.post(`${API_BASE}/${encodeURIComponent(tweetId)}/quote`, quoteTextOrForm, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       return unwrap(res);
     } else {
-      const res = await client.post(`/${tweetId}/quote`, { text: String(quoteTextOrForm) });
+      const res = await client.post(`${API_BASE}/${encodeURIComponent(tweetId)}/quote`, { text: String(quoteTextOrForm) });
       return unwrap(res);
     }
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to quote tweet");
   }
 }
 
 export async function deleteQuote(quoteId) {
   try {
-    const res = await client.delete(`/${quoteId}/quote`);
+    const res = await client.delete(`${API_BASE}/${encodeURIComponent(quoteId)}/quote`);
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to delete quote");
   }
 }
 
@@ -151,67 +143,50 @@ export async function deleteQuote(quoteId) {
 
 export async function addComment(tweetId, text) {
   try {
-    // POST /:tweetId/comments
-    const res = await client.post(`/${tweetId}/comments`, { text });
+    const res = await client.post(`${API_BASE}/${encodeURIComponent(tweetId)}/comments`, { text });
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to add comment");
   }
 }
 
-/**
- * Update comment:
- * PUT /:tweetId/comments/:commentId body: { text }
- */
 export async function updateComment(tweetId, commentId, text) {
   try {
-    const res = await client.put(`/${tweetId}/comments/${commentId}`, { text });
+    const res = await client.put(`${API_BASE}/${encodeURIComponent(tweetId)}/comments/${encodeURIComponent(commentId)}`, { text });
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to update comment");
   }
 }
 
-/**
- * Reply to comment:
- * POST /:tweetId/comments/:commentId/replies body: { text }
- */
 export async function replyToComment(tweetId, commentId, text) {
   try {
-    const res = await client.post(`/${tweetId}/comments/${commentId}/replies`, { text });
+    const res = await client.post(`${API_BASE}/${encodeURIComponent(tweetId)}/comments/${encodeURIComponent(commentId)}/replies`, { text });
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to reply to comment");
   }
 }
 
-/**
- * Toggle comment like:
- * POST /:tweetId/comments/:commentId/like
- */
 export async function toggleCommentLike(tweetId, commentId) {
   try {
-    const res = await client.post(`/${tweetId}/comments/${commentId}/like`);
+    const res = await client.post(`${API_BASE}/${encodeURIComponent(tweetId)}/comments/${encodeURIComponent(commentId)}/like`);
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to toggle comment like");
   }
 }
 
-/**
- * Soft delete comment:
- * DELETE /:tweetId/comments/:commentId/soft
- */
 export async function softDeleteComment(tweetId, commentId) {
   try {
-    const res = await client.delete(`/${tweetId}/comments/${commentId}/soft`);
+    const res = await client.delete(`${API_BASE}/${encodeURIComponent(tweetId)}/comments/${encodeURIComponent(commentId)}/soft`);
     return unwrap(res);
   } catch (err) {
-    throwError(err);
+    throw makeError(err, "Failed to soft delete comment");
   }
 }
 
-/* ---------- Export default convenience object ---------- */
+/* ---------- Default export convenience object ---------- */
 export default {
   createTweet,
   getTweets,
