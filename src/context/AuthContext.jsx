@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect } from "react";
-import axios from "axios";
+
+import { client } from "../api/client";
 
 export const AuthContext = createContext();
 
@@ -11,7 +12,7 @@ export default function AuthProvider({ children }) {
   useEffect(() => {
     const verifyLogin = async () => {
       try {
-        const res = await axios.get("/api/v1/verify");
+        const res = await client.get("/verify"); // 👈 no /api/v1 here
         if (res.data.success) {
           setUser(res.data.user);
         } else {
