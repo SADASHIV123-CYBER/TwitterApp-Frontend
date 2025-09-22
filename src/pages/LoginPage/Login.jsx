@@ -22,26 +22,17 @@ function Login() {
     setLoading(true);
 
     try {
-      // 1) Login
-      // const loginRes = await client.post("/auth", form, {
-      //   headers: { "Content-Type": "application/json" },
-      // });
-      // console.log("loginRes:", loginRes.status, loginRes.data);
+      // ✅ Login request
+      const loginRes = await client.post("/auth", form);
+      console.log("loginRes:", loginRes.status, loginRes.data);
 
-      // // 2) Verify user
-      // const verifyRes = await client.get("/verify");
-      // console.log("verifyRes:", verifyRes.status, verifyRes.data);
-
-      const loginRes = await client.post("/auth", form); // ✅ only /auth
-console.log("loginRes:", loginRes.status, loginRes.data);
-
-// Verify user
-const verifyRes = await client.get("/verify"); // ✅ only /verify
-console.log("verifyRes:", verifyRes.status, verifyRes.data);
+      // ✅ Verify user (cookie now sent automatically)
+      const verifyRes = await client.get("/verify");
+      console.log("verifyRes:", verifyRes.status, verifyRes.data);
 
       if (verifyRes?.data?.success && verifyRes.data.user) {
         setUser(verifyRes.data.user);
-        navigate(`/`);
+        navigate("/");
         return;
       }
 
@@ -49,13 +40,9 @@ console.log("verifyRes:", verifyRes.status, verifyRes.data);
     } catch (err) {
       console.error("Login flow error:", err?.response || err);
       const serverMsg = err?.response?.data?.message;
-      if (serverMsg) {
-        setError(serverMsg);
-      } else if (err?.response?.status === 401) {
-        setError("Unauthorized — invalid credentials or token.");
-      } else {
-        setError("Invalid email or password. Try again.");
-      }
+      if (serverMsg) setError(serverMsg);
+      else if (err?.response?.status === 401) setError("Unauthorized — invalid credentials or token.");
+      else setError("Invalid email or password. Try again.");
     } finally {
       setLoading(false);
     }
@@ -64,9 +51,7 @@ console.log("verifyRes:", verifyRes.status, verifyRes.data);
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <h1 className="text-2xl font-bold text-gray-800 text-center mb-6">
-          Login
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-800 text-center mb-6">Login</h1>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <Input
@@ -89,9 +74,7 @@ console.log("verifyRes:", verifyRes.status, verifyRes.data);
             required
           />
 
-          {error && (
-            <p className="text-red-600 text-sm text-center">{error}</p>
-          )}
+          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
 
           <Button
             text={loading ? "Logging in..." : "Login"}
@@ -104,12 +87,7 @@ console.log("verifyRes:", verifyRes.status, verifyRes.data);
 
         <p className="text-center text-sm text-gray-600 mt-6">
           Don’t have an account?{" "}
-          <Link
-            to="/register"
-            className="font-medium text-blue-600 hover:underline"
-          >
-            Register
-          </Link>
+          <Link to="/register" className="font-medium text-blue-600 hover:underline">Register</Link>
         </p>
       </div>
     </div>

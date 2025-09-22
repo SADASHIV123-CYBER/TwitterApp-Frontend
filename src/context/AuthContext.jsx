@@ -1,5 +1,4 @@
 import { createContext, useState, useEffect } from "react";
-
 import { client } from "../api/client";
 
 export const AuthContext = createContext();
@@ -12,12 +11,9 @@ export default function AuthProvider({ children }) {
   useEffect(() => {
     const verifyLogin = async () => {
       try {
-        const res = await client.get("/verify"); // 👈 no /api/v1 here
-        if (res.data.success) {
-          setUser(res.data.user);
-        } else {
-          setUser(null);
-        }
+        const res = await client.get("/verify"); // ✅ cookie will be sent
+        if (res.data.success) setUser(res.data.user);
+        else setUser(null);
       } catch (err) {
         console.log(err);
         setUser(null);
@@ -25,17 +21,11 @@ export default function AuthProvider({ children }) {
         setLoading(false);
       }
     };
-
     verifyLogin();
   }, []);
 
-  const login = (userData) => {
-    setUser(userData);
-  };
-
-  const logout = () => {
-    setUser(null);
-  };
+  const login = (userData) => setUser(userData);
+  const logout = () => setUser(null);
 
   return (
     <AuthContext.Provider value={{ user, setUser, login, logout, loading }}>
