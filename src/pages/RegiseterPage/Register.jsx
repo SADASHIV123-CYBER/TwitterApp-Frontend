@@ -4,7 +4,7 @@ import Input from "../../components/Input/Input";
 import Button from "../../components/Button/Button";
 import { z } from "zod";
 import { Link } from "react-router-dom";
-import {registerUser} from './registerService'
+import { registerUser } from './registerService'
 
 const registerSchema = z.object({
   fullName: z
