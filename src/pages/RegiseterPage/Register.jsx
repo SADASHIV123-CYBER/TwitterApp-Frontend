@@ -1,10 +1,10 @@
 // src/pages/Auth/Register.jsx
 import { useState } from "react";
-import axios from "axios";
 import Input from "../../components/Input/Input";
 import Button from "../../components/Button/Button";
 import { z } from "zod";
 import { Link } from "react-router-dom";
+import {registerUser} from './registerService'
 
 const registerSchema = z.object({
   fullName: z
@@ -139,18 +139,10 @@ function Register() {
 
     setLoading(true);
     try {
-      const formData = new FormData();
-      Object.keys(form).forEach((key) => {
-        const value = form[key];
-        if (value === null || value === undefined) return;
-        formData.append(key, value);
-      });
+      // Use registerUser service which handles FormData vs JSON and targets the backend directly
+      const res = await registerUser(form);
 
-      const res = await axios.post("/api/v1/user", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setMessage(res.data.message || "User created successfully");
+      setMessage(res.data?.message || res.data?.msg || "User created successfully");
 
       setForm({
         fullName: "",
@@ -282,4 +274,3 @@ function Register() {
 }
 
 export default Register;
-// git

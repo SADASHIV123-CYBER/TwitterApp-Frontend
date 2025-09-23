@@ -8,7 +8,6 @@ import axios from "axios";
 function NavbarComponent() {
   const { user } = useContext(AuthContext);
 
-  // ✅ memoize API call (stable reference)
   const fetchData = useCallback(async () => {
     try {
       const response = await axios.get(
@@ -24,77 +23,73 @@ function NavbarComponent() {
     fetchData();
   }, [fetchData]);
 
-  // ✅ memoize computed links
   const networkLink = useMemo(() => {
-    if (user) {
-      return `/followList?tab=followers&userId=${user._id}`;
-    }
-    return "/login";
+    return user ? `/followList?tab=followers&userId=${user._id}` : "/login";
   }, [user]);
 
   const profileLink = useMemo(() => {
-    if (user) {
-      return `/profile/${user._id}`;
-    }
-    return "/login";
+    return user ? `/profile/${user._id}` : "/login";
   }, [user]);
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-slate-50 shadow-md px-8 py-3 flex items-center justify-between h-16">
+    <nav className="sticky top-0 z-50 w-full bg-gradient-to-r from-yellow-100 via-yellow-200 to-yellow-300 shadow-lg px-4 sm:px-8 py-3 flex items-center justify-between h-16 backdrop-blur-md">
       {/* Logo */}
-      <Link to="/" className="flex items-center space-x-2">
-        <Twitter className="text-sky-500 w-8 h-8" />
-        <span className="text-xl font-bold text-gray-800 hidden sm:block">
+      <Link to="/" className="flex items-center gap-2">
+        <Twitter className="text-yellow-600 w-8 h-8" />
+        <span className="text-lg sm:text-xl font-bold text-gray-800 hidden sm:block">
           TwitterX
         </span>
       </Link>
 
-      {/* Search Bar */}
-      <div className="mx-6 flex-1 max-w-md hidden sm:block">
+      {/* Search bar */}
+      <div className="mx-4 flex-1 max-w-xs sm:max-w-md hidden sm:block">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
           <input
             type="text"
             placeholder="Search..."
-            className="w-full pl-10 pr-3 h-10 border border-gray-300 rounded-full text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
+            className="w-full pl-10 pr-3 h-10 border border-yellow-300 rounded-full text-sm focus:ring-2 focus:ring-yellow-400 focus:outline-none bg-white/80 backdrop-blur-sm placeholder-gray-500 transition"
           />
         </div>
       </div>
 
-      {/* Nav Links */}
-      <div className="flex items-center space-x-8 text-gray-600">
+      {/* Links */}
+      <div className="flex items-center gap-6 sm:gap-8 text-gray-700">
+        {/* Home */}
         <Link
           to="/"
-          className="flex flex-col items-center hover:text-sky-500 transition"
+          className="flex flex-col items-center hover:text-yellow-700 transition"
         >
           <Home className="w-6 h-6" />
-          <span className="text-xs mt-1">Home</span>
+          <span className="hidden sm:block text-xs mt-1">Home</span>
         </Link>
 
+        {/* Network */}
         <Link
           to={networkLink}
-          className="flex flex-col items-center hover:text-sky-500 transition"
+          className="flex flex-col items-center hover:text-yellow-700 transition"
         >
           <Users className="w-6 h-6" />
-          <span className="text-xs mt-1">Network</span>
+          <span className="hidden sm:block text-xs mt-1">Network</span>
         </Link>
 
+        {/* Profile / Login */}
         {user ? (
           <Link
             to={profileLink}
-            className="flex flex-col items-center hover:text-sky-500 transition"
+            className="flex flex-col items-center hover:text-yellow-700 transition"
           >
             <img
               src={user.profilePicture || "/default-avatar.png"}
               alt="profile"
-              className="w-10 h-10 rounded-full object-cover shadow-md"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shadow-md border-2 border-yellow-300 transition-transform hover:scale-105"
             />
-            <span className="text-xs mt-1">Me</span>
+            <span className="hidden sm:block text-xs mt-1">Me</span>
           </Link>
         ) : (
           <Link
             to="/login"
-            className="px-4 py-2 bg-sky-500 text-white text-sm rounded-full hover:bg-sky-600 transition"
+            className="px-3 sm:px-4 py-1.5 sm:py-2 bg-yellow-400 text-white text-sm rounded-full hover:bg-yellow-500 transition shadow-md"
           >
             Login
           </Link>
