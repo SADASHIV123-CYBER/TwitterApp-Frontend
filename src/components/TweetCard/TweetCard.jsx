@@ -519,8 +519,9 @@ export default function TweetCard({ tweet, onUpdate }) {
   const isAuthorFollowed = author?.isFollowed ?? false;
 
   return (
-    <Card className="mb-4">
-      <div className="flex gap-4 items-start">
+    <Card className="mb-4 p-3 sm:p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-100">
+      <div className="flex gap-3 sm:gap-4 items-start">
+        {/* Avatar */}
         <div
           onClick={goToProfile}
           role="button"
@@ -533,123 +534,197 @@ export default function TweetCard({ tweet, onUpdate }) {
           <img
             src={authorPic}
             alt={authorName}
-            className="w-12 h-12 rounded-full object-cover block"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-white shadow-sm"
+            onError={(e) => {
+              e.target.src = "/default-avatar.png";
+            }}
           />
         </div>
 
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div>
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
+              <div className="min-w-0">
                 <div
                   onClick={goToProfile}
                   onKeyDown={(e) => { if (e.key === "Enter") goToProfile(e); }}
                   role="button"
                   tabIndex={0}
-                  className="font-medium text-gray-900 cursor-pointer select-none"
+                  className="font-semibold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors truncate text-sm sm:text-base"
                 >
                   {authorName}
                 </div>
-                <div className="text-xs text-gray-400">{new Date(tweetState.createdAt).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {new Date(tweetState.createdAt).toLocaleString()}
+                </div>
               </div>
 
               {!isAuthor && (
-                <div>
+                <div className="sm:self-start">
                   <Button
                     text={followLoading ? "..." : isAuthorFollowed ? "Following" : "Follow"}
                     onClickHandler={handleToggleFollow}
                     disabled={followLoading}
                     styleType={isAuthorFollowed ? "outline" : "primary"}
-                    className="px-2 py-1 text-xs"
+                    className="px-3 py-1.5 text-xs rounded-full min-w-[80px] sm:min-w-[90px]"
                   />
                 </div>
               )}
             </div>
 
             {isAuthor && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 self-start sm:self-auto">
                 {!isEditing && (
                   <>
-                    <button onClick={startEdit} className="text-sm text-gray-500 hover:underline">Edit</button>
-                    <button onClick={confirmAndDelete} className="text-sm text-red-500 hover:underline">Delete</button>
+                    <button 
+                      onClick={startEdit} 
+                      className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={confirmAndDelete} 
+                      className="text-xs sm:text-sm text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                    >
+                      Delete
+                    </button>
                   </>
                 )}
               </div>
             )}
           </div>
 
+          {/* Tweet Content */}
           {isEditing ? (
             <div className="mt-3">
-              <textarea rows={3} value={editText} onChange={(e) => setEditText(e.target.value)} className="w-full p-2 border rounded" />
-              <div className="mt-2 flex gap-2 justify-end">
-                <Button text="Cancel" onClickHandler={cancelEdit} styleType="secondary" />
-                <Button text="Save" onClickHandler={saveEdit} disabled={loadingAction || !editText.trim()} />
+              <textarea 
+                rows={3} 
+                value={editText} 
+                onChange={(e) => setEditText(e.target.value)} 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                placeholder="Edit your tweet..."
+              />
+              <div className="mt-3 flex flex-col sm:flex-row gap-2 justify-end">
+                <Button 
+                  text="Cancel" 
+                  onClickHandler={cancelEdit} 
+                  styleType="secondary" 
+                  className="w-full sm:w-auto px-4 py-2 text-sm"
+                />
+                <Button 
+                  text="Save Changes" 
+                  onClickHandler={saveEdit} 
+                  disabled={loadingAction || !editText.trim()} 
+                  className="w-full sm:w-auto px-4 py-2 text-sm"
+                />
               </div>
             </div>
           ) : (
             <>
-              <div className="mt-3 text-gray-800 whitespace-pre-wrap">{tweetState.body}</div>
+              <div className="mt-2 text-gray-800 whitespace-pre-wrap text-sm sm:text-base leading-relaxed">
+                {tweetState.body}
+              </div>
 
               {tweetImage && (
-                <div className="mt-3">
-                  <img src={getFullImageUrl(tweetImage)} alt="tweet media" className="w-full max-h-96 object-cover rounded-md border" />
+                <div className="mt-3 rounded-lg overflow-hidden border border-gray-200">
+                  <img 
+                    src={getFullImageUrl(tweetImage)} 
+                    alt="Tweet media" 
+                    className="w-full max-h-80 sm:max-h-96 object-cover"
+                    loading="lazy"
+                  />
                 </div>
               )}
             </>
           )}
 
-          <div className="mt-4 flex gap-6 text-sm text-gray-600">
+          {/* Action Buttons */}
+          <div className="mt-4 flex flex-wrap gap-3 sm:gap-6 text-sm">
             <Button
-              text={`${liked ? "Unlike" : "Like"} (${likeCount})`}
+              text={`${liked ? "❤️" : "🤍"} ${likeCount}`}
               onClickHandler={toggleLike}
               disabled={loadingAction}
               styleType="secondary"
-              className="px-0 py-0 text-sm text-gray-600 hover:underline"
+              className={`px-3 py-2 text-xs sm:text-sm rounded-full border transition-all duration-200 ${
+                liked 
+                  ? "bg-red-50 text-red-700 border-red-200" 
+                  : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+              }`}
             />
 
             <Button
-              text={`Retweet (${retweetCount})`}
+              text={`🔁 ${retweetCount}`}
               onClickHandler={doRetweet}
               disabled={loadingAction}
               styleType="secondary"
-              className="px-0 py-0 text-sm text-gray-600 hover:underline"
+              className="px-3 py-2 text-xs sm:text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded-full hover:bg-gray-100 transition-all duration-200"
             />
 
             <Button
-              text={`Comments (${commentCount})`}
+              text={`💬 ${commentCount}`}
               onClickHandler={() => setShowComments((s) => !s)}
               styleType="secondary"
-              className="px-0 py-0 text-sm text-gray-600 hover:underline"
+              className="px-3 py-2 text-xs sm:text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded-full hover:bg-gray-100 transition-all duration-200"
             />
 
             <Button
-              text={`Quote (${quoteCount})`}
+              text={`🔖 ${quoteCount}`}
               onClickHandler={() => setQuoteOpen((s) => !s)}
               styleType="secondary"
-              className="px-0 py-0 text-sm text-gray-600 hover:underline"
+              className="px-3 py-2 text-xs sm:text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded-full hover:bg-gray-100 transition-all duration-200"
             />
           </div>
 
+          {/* Quote Tweet Section */}
           {quoteOpen && (
-            <div className="mt-3">
-              <textarea rows={2} value={quoteText} onChange={(e) => setQuoteText(e.target.value)} className="w-full p-2 border rounded" placeholder="Add a comment to your quote" />
-              <div className="flex gap-2 justify-end mt-2">
-                <Button text="Cancel" onClickHandler={() => setQuoteOpen(false)} styleType="secondary" />
-                <Button text="Quote" onClickHandler={submitQuote} disabled={!quoteText.trim() || loadingAction} />
+            <div className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <textarea 
+                rows={3} 
+                value={quoteText} 
+                onChange={(e) => setQuoteText(e.target.value)} 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                placeholder="Add your thoughts to this quote tweet..."
+              />
+              <div className="mt-3 flex flex-col sm:flex-row gap-2 justify-end">
+                <Button 
+                  text="Cancel" 
+                  onClickHandler={() => setQuoteOpen(false)} 
+                  styleType="secondary" 
+                  className="w-full sm:w-auto px-4 py-2 text-sm"
+                />
+                <Button 
+                  text="Post Quote" 
+                  onClickHandler={submitQuote} 
+                  disabled={!quoteText.trim() || loadingAction} 
+                  className="w-full sm:w-auto px-4 py-2 text-sm"
+                />
               </div>
             </div>
           )}
 
-          <div className="mt-4">
-            <div className="flex gap-2">
-              <input value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Write a comment" className="flex-1 p-2 rounded border" />
-              <Button text="Comment" onClickHandler={submitComment} disabled={!commentText.trim() || loadingAction} />
+          {/* Comment Input */}
+          <div className="mt-4 bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input 
+                value={commentText} 
+                onChange={(e) => setCommentText(e.target.value)} 
+                placeholder="Write a comment..." 
+                className="flex-1 p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+              />
+              <Button 
+                text="Comment" 
+                onClickHandler={submitComment} 
+                disabled={!commentText.trim() || loadingAction} 
+                className="w-full sm:w-auto px-4 py-3 text-sm font-medium"
+              />
             </div>
           </div>
 
+          {/* Comments Section */}
           {showComments && (
-            <div className="mt-4">
-              {/* IMPORTANT: pass the exact prop names CommentList expects */}
+            <div className="mt-4 border-t border-gray-200 pt-4">
               <CommentList
                 comments={tweetState.comments || []}
                 currentUserId={currentUserId}

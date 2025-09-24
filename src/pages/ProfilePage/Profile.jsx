@@ -12,7 +12,6 @@ import {
   getUserQuotes,
 } from "./userService";
 
-
 // import { 
 //   getUserProfile,
 //   toggleFollowService,
@@ -389,68 +388,68 @@ export default function Profile() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <Card className="flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-6">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6">
+      <Card className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6 p-4 sm:p-6">
+        <div className="flex flex-col md:flex-row items-center md:items-center gap-4 md:gap-6 w-full">
           <img
             src={profile.profilePicture || "/default-avatar.png"}
             alt={profile.fullName || profile.userName}
-            className="w-28 h-28 rounded-full border-2 border-gray-200 shadow-md object-cover hover:scale-105 transition-transform duration-300"
+            className="w-20 h-20 md:w-28 md:h-28 rounded-full border-2 border-gray-200 shadow-md object-cover hover:scale-105 transition-transform duration-300"
           />
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900">{profile.fullName || profile.displayName || profile.userName}</h2>
+          <div className="mt-3 md:mt-0 text-center md:text-left">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">{profile.fullName || profile.displayName || profile.userName}</h2>
             <p className="text-gray-500 text-sm">@{profile.userName}</p>
             {profile.displayName && <p className="text-gray-600 italic mt-1">{profile.displayName}</p>}
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-end gap-3 w-full md:w-auto mt-3 md:mt-0">
           {isOwnProfile ? (
-            <Button text="Logout" styleType="error" onClickHandler={handleLogout} className="px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300" />
+            <Button text="Logout" styleType="error" onClickHandler={handleLogout} className="w-full md:w-auto px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300" />
           ) : (
-            <div className="flex gap-3">
+            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
               <Button
                 text={followLoading ? "Loading..." : profile.isFollowed ? "Unfollow" : "Follow"}
                 styleType="primary"
                 onClickHandler={handleToggleFollow}
                 disabled={followLoading}
-                className="px-4 py-2 rounded-lg"
+                className="w-full md:w-auto px-4 py-2 rounded-lg"
               />
-              <Button text="Message" styleType="secondary" onClickHandler={() => alert("Open chat")} />
+              <Button text="Message" styleType="secondary" onClickHandler={() => alert("Open chat")} className="w-full md:w-auto" />
             </div>
           )}
         </div>
       </Card>
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="text-center">
+        <Card className="text-center py-4">
           <Link to={`/followList?tab=followers&userId=${profile._id}`} className="block">
             <p className="text-gray-500 text-sm">Followers</p>
             <p className="text-2xl font-bold">{profile.followerCount ?? 0}</p>
           </Link>
         </Card>
-        <Card className="text-center">
+        <Card className="text-center py-4">
           <Link to={`/followList?tab=following&userId=${profile._id}`} className="block">
             <p className="text-gray-500 text-sm">Following</p>
             <p className="text-2xl font-bold">{profile.followingCount ?? 0}</p>
           </Link>
         </Card>
-        <Card className="text-center">
+        <Card className="text-center py-4">
           <p className="text-gray-500 text-sm">Tweets</p>
           <p className="text-2xl font-bold">{Array.isArray(tweets) ? tweets.length : 0}</p>
         </Card>
-        <Card className="text-center">
+        <Card className="text-center py-4">
           <p className="text-gray-500 text-sm">Role</p>
           <p className="text-2xl font-bold">{profile.role ?? "user"}</p>
         </Card>
       </div>
 
       <div className="mt-8">
-        <div className="flex gap-3 border-b pb-2">
+        <div className="flex flex-wrap gap-2 border-b pb-2 justify-center md:justify-start">
           {["tweets", "retweets", "quotes"].map((tab) => (
             <button
               key={tab}
-              className={`px-3 py-2 ${activeTab === tab ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-600"}`}
+              className={`px-3 py-2 text-sm md:text-base ${activeTab === tab ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-600"}`}
               onClick={() => setActiveTab(tab)}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -488,7 +487,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <Card className="mt-8">
+      <Card className="mt-8 p-4 sm:p-6">
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Profile Details</h3>
         <div className="space-y-3 text-gray-700">
           <p><span className="font-medium">Email:</span> {profile.email}</p>
