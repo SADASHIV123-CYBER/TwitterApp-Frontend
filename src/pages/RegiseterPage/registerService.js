@@ -1,33 +1,22 @@
 // src/services/registerService.js
+
 const BACKEND = "https://twitterapp-backend-85c9.onrender.com";
 const ENDPOINT = `${BACKEND}/api/v1/user`;
 
 /**
- * Invert of your server->client mapping so we send server keys
- * when posting form data / json.
+ * Client → Server field mapping
+ * (camelCase, matches backend expectations)
  */
-const serverToClientFieldMap = {
-  username: "userName",
-  user_name: "userName",
-  full_name: "fullName",
-  fullname: "fullName",
+const clientToServerFieldMap = {
+  userName: "userName",
+  fullName: "fullName",
   email: "email",
   password: "password",
-  mobile: "mobileNumber",
   mobileNumber: "mobileNumber",
   displayName: "displayName",
   profilePicture: "profilePicture",
   role: "role",
 };
-
-// build client->server map by inverting. If duplicates, prefer first seen.
-const clientToServerFieldMap = Object.entries(serverToClientFieldMap).reduce(
-  (acc, [serverKey, clientKey]) => {
-    if (!acc[clientKey]) acc[clientKey] = serverKey;
-    return acc;
-  },
-  {}
-);
 
 /**
  * Helper to map client key to server key (fallback to same key).
@@ -66,7 +55,6 @@ async function parseResponse(res) {
  * - returns an axios-like object: { data: <parsedResponse> } so existing code works
  */
 export async function registerUser(form) {
-  // detect if profilePicture is a File (or Blob)
   const hasFile =
     form.profilePicture &&
     typeof File !== "undefined" &&
@@ -79,7 +67,6 @@ export async function registerUser(form) {
       const serverKey = mapClientToServer(key);
 
       if (key === "profilePicture") {
-        // append file; browser will set proper headers and boundary
         fd.append(serverKey, value, value.name || "file");
       } else {
         fd.append(serverKey, String(value));
@@ -89,14 +76,12 @@ export async function registerUser(form) {
     const res = await fetch(ENDPOINT, {
       method: "POST",
       body: fd,
-      credentials: "include", // send cookies (like withCredentials)
-      // DO NOT set Content-Type here for FormData
+      credentials: "include", // send cookies if any
     });
 
     const parsed = await parseResponse(res);
     return { data: parsed };
   } else {
-    // JSON payload (exclude profilePicture if null)
     const payload = {};
     Object.entries(form).forEach(([key, value]) => {
       if (value === null || value === undefined) return;
@@ -104,6 +89,8 @@ export async function registerUser(form) {
       const serverKey = mapClientToServer(key);
       payload[serverKey] = value;
     });
+
+    console.log("Register Payload:", payload); // ✅ Debug payload
 
     const res = await fetch(ENDPOINT, {
       method: "POST",
