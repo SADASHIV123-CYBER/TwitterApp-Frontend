@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import Button from "../../components/Button/Button";
 import Card from "../../components/Card/Card";
 import TweetCard from "../../components/TweetCard/TweetCard";
-import { AuthContext } from "../../context/AuthContext";
+import { AuthContext } from "../../context/context";
 import {
   getUserProfile,
   toggleFollowService,

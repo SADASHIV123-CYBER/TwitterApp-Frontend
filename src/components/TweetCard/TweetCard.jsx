@@ -18,7 +18,8 @@ import {
   deleteTweet,
 } from "../../api/tweetApi";
 import { toggleFollow, getUserProfile } from "../../api/userApi";
-import { AuthContext } from "../../context/AuthContext";
+// import { AuthContext } from "../../context/AuthContext";
+import { AuthContext } from "../../context/context";
 
 function idIn(arr = [], id) {
   return arr.some(

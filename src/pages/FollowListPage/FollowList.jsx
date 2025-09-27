@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useContext } from "react";
-import { AuthContext } from "../../context/AuthContext";
+import { AuthContext } from "../../context/context";
 import FollowListModal from "../../components/FollowList/FollowListModal";
 
 export default function FollowListPage() {

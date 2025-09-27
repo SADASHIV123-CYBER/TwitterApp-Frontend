@@ -2,8 +2,8 @@ import React, { useEffect, useState, useCallback, useContext } from "react";
 import TweetComposer from "../../components/TweetComposer/TweetComposer";
 import TweetCard from "../../components/TweetCard/TweetCard";
 import { getTweets } from "../../api/tweetApi";
-import { AuthContext } from "../../context/AuthContext";
 import { Link } from "react-router-dom";
+import { AuthContext } from "../../context/context";
 
 export default function Home() {
   const [tweets, setTweets] = useState([]);

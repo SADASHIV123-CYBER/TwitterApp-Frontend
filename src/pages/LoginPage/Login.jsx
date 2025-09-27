@@ -2,8 +2,8 @@ import { useState, useContext } from "react";
 import Input from "../../components/Input/Input";
 import Button from "../../components/Button/Button";
 import { useNavigate, Link } from "react-router-dom";
-import { AuthContext } from "../../context/AuthContext";
 import { client } from "../../api/client";
+import { AuthContext } from "../../context/context";
 
 function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
