@@ -1,5 +1,6 @@
 import React, { useState, useCallback, memo } from "react";
 import Button from "../Button/Button";
+import { ThemeContext } from "../../context/context";
 
 function isSameId(a, b) {
   if (!a || !b) return false;
