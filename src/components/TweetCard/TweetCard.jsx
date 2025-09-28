@@ -35,8 +35,8 @@ function pickData(res) {
   return res;
 }
 
-/* --- TweetCard component (logic preserved) --- */
-export default function TweetCard({ tweet, onUpdate }) {
+/* --- TweetCard component (logic preserved, theme-aware & optimized) --- */
+const TweetCard = function TweetCard({ tweet, onUpdate }) {
   const { user } = useContext(AuthContext);
   const { darkMode } = useContext(ThemeContext);
   const currentUserId = user?.id ?? user?._id;
@@ -87,8 +87,6 @@ export default function TweetCard({ tweet, onUpdate }) {
     else setTimeout(() => onUpdate(payload), 0);
   }, [onUpdate]);
 
-  /* applyServerResult, doAction, fetchLatestTweetFromServer and all action handlers
-     are copied untouched from your original file — only classNames below were adjusted. */
   const applyServerResult = useCallback((resObj) => {
     if (!resObj) return;
     if (resObj._id && String(resObj._id) === String(tweetState._id)) {
@@ -139,7 +137,6 @@ export default function TweetCard({ tweet, onUpdate }) {
   }, [tweetState?._id]);
 
   // --- Like / Retweet / Comment / Reply / Toggle comment like / Update / Soft delete / Quote
-  // All handlers preserved exactly as your original code:
   const toggleLike = useCallback(async () => {
     if (!tweetState?._id) return;
     const liked = idIn(tweetState.likes || [], currentUserId);
@@ -333,7 +330,7 @@ export default function TweetCard({ tweet, onUpdate }) {
           <img
             src={authorPic}
             alt={authorName}
-            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-sm border-2 ${darkMode ? "border-gray-700" : "border-white"}`}
+            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-sm border-2 transition-all duration-300 ${darkMode ? "border-gray-700" : "border-white"}`}
             onError={(e) => { e.target.src = "/default-avatar.png"; }}
           />
         </div>
@@ -349,11 +346,11 @@ export default function TweetCard({ tweet, onUpdate }) {
                   onKeyDown={(e) => { if (e.key === "Enter") goToProfile(e); }}
                   role="button"
                   tabIndex={0}
-                  className={`cursor-pointer truncate text-sm sm:text-base font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"} hover:text-yellow-400`}
+                  className={`cursor-pointer truncate text-sm sm:text-base font-semibold transition-colors duration-300 ${darkMode ? "text-gray-100" : "text-gray-900"} hover:text-yellow-400`}
                 >
                   {authorName}
                 </div>
-                <div className={`text-xs mt-0.5 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                <div className={`text-xs mt-0.5 transition-colors duration-300 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                   {new Date(tweetState.createdAt).toLocaleString()}
                 </div>
               </div>
@@ -365,7 +362,7 @@ export default function TweetCard({ tweet, onUpdate }) {
                     onClickHandler={handleToggleFollow}
                     disabled={followLoading}
                     styleType={isAuthorFollowed ? "outline" : "primary"}
-                    className={`px-3 py-1.5 text-xs rounded-full min-w-[80px] sm:min-w-[90px] ${darkMode ? "bg-gray-800 text-gray-100 border-gray-700 hover:text-yellow-400" : ""}`}
+                    className={`px-3 py-1.5 text-xs rounded-full min-w-[80px] sm:min-w-[90px] transition-colors duration-300 ${darkMode ? "bg-gray-800 text-gray-100 border-gray-700 hover:text-yellow-400" : ""}`}
                   />
                 </div>
               )}
@@ -377,13 +374,13 @@ export default function TweetCard({ tweet, onUpdate }) {
                   <>
                     <button
                       onClick={startEdit}
-                      className={`text-xs sm:text-sm px-2 py-1 rounded ${darkMode ? "text-yellow-300 hover:text-yellow-200" : "text-blue-600 hover:text-yellow-400"} hover:bg-transparent`}
+                      className={`text-xs sm:text-sm px-2 py-1 rounded transition-colors duration-200 ${darkMode ? "text-yellow-300 hover:text-yellow-200" : "text-blue-600 hover:text-yellow-400"} hover:bg-transparent`}
                     >
                       Edit
                     </button>
                     <button
                       onClick={confirmAndDelete}
-                      className={`text-xs sm:text-sm px-2 py-1 rounded ${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-800"}`}
+                      className={`text-xs sm:text-sm px-2 py-1 rounded transition-colors duration-200 ${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-800"}`}
                     >
                       Delete
                     </button>
@@ -400,7 +397,7 @@ export default function TweetCard({ tweet, onUpdate }) {
                 rows={3}
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
-                className={`w-full p-3 border rounded-lg text-sm sm:text-base ${darkMode ? "bg-gray-800 border-gray-700 text-gray-100 focus:ring-yellow-400" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"}`}
+                className={`w-full p-3 border rounded-lg text-sm sm:text-base transition-colors duration-200 ${darkMode ? "bg-gray-800 border-gray-700 text-gray-100 focus:ring-yellow-400" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"}`}
                 placeholder="Edit your tweet..."
               />
               <div className="mt-3 flex flex-col sm:flex-row gap-2 justify-end">
@@ -410,13 +407,13 @@ export default function TweetCard({ tweet, onUpdate }) {
             </div>
           ) : (
             <>
-              <div className={`mt-2 whitespace-pre-wrap text-sm sm:text-base leading-relaxed ${darkMode ? "text-gray-100" : "text-gray-800"}`}>
+              <div className={`mt-2 whitespace-pre-wrap text-sm sm:text-base leading-relaxed transition-colors duration-200 ${darkMode ? "text-gray-100" : "text-gray-800"}`}>
                 {tweetState.body}
               </div>
 
               {tweetImage && (
-                <div className={`mt-3 rounded-lg overflow-hidden border ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
-                  <img src={getFullImageUrl(tweetImage)} alt="Tweet media" className="w-full max-h-80 sm:max-h-96 object-cover" loading="lazy" />
+                <div className={`mt-3 rounded-lg overflow-hidden border transition-colors duration-300 ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
+                  <img src={getFullImageUrl(tweetImage)} alt="Tweet media" className="w-full max-h-80 sm:max-h-96 object-cover transition-all duration-300" loading="lazy" />
                 </div>
               )}
             </>
@@ -429,7 +426,7 @@ export default function TweetCard({ tweet, onUpdate }) {
               onClickHandler={toggleLike}
               disabled={loadingAction}
               styleType="secondary"
-              className={`px-3 py-2 text-xs sm:text-sm rounded-full border ${liked ? (darkMode ? "bg-red-900/20 text-red-300 border-red-800" : "bg-red-50 text-red-700 border-red-200") : (darkMode ? "bg-gray-800 text-gray-200 border-gray-700 hover:text-yellow-400" : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100")}`}
+              className={`px-3 py-2 text-xs sm:text-sm rounded-full border transition-all duration-200 ${liked ? (darkMode ? "bg-red-900/20 text-red-300 border-red-800" : "bg-red-50 text-red-700 border-red-200") : (darkMode ? "bg-gray-800 text-gray-200 border-gray-700 hover:text-yellow-400" : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100")}`}
             />
 
             <Button
@@ -437,33 +434,33 @@ export default function TweetCard({ tweet, onUpdate }) {
               onClickHandler={doRetweet}
               disabled={loadingAction}
               styleType="secondary"
-              className={`px-3 py-2 text-xs sm:text-sm rounded-full border ${darkMode ? "bg-gray-800 text-gray-200 border-gray-700 hover:text-yellow-400" : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"}`}
+              className={`px-3 py-2 text-xs sm:text-sm rounded-full border transition-colors duration-200 ${darkMode ? "bg-gray-800 text-gray-200 border-gray-700 hover:text-yellow-400" : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"}`}
             />
 
             <Button
               text={`💬 ${commentCount}`}
               onClickHandler={() => setShowComments((s) => !s)}
               styleType="secondary"
-              className={`px-3 py-2 text-xs sm:text-sm rounded-full border ${darkMode ? "bg-gray-800 text-gray-200 border-gray-700 hover:text-yellow-400" : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"}`}
+              className={`px-3 py-2 text-xs sm:text-sm rounded-full border transition-colors duration-200 ${darkMode ? "bg-gray-800 text-gray-200 border-gray-700 hover:text-yellow-400" : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"}`}
             />
 
             <Button
               text={`🔖 ${quoteCount}`}
               onClickHandler={() => setQuoteOpen((s) => !s)}
               styleType="secondary"
-              className={`px-3 py-2 text-xs sm:text-sm rounded-full border ${darkMode ? "bg-gray-800 text-gray-200 border-gray-700 hover:text-yellow-400" : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"}`}
+              className={`px-3 py-2 text-xs sm:text-sm rounded-full border transition-colors duration-200 ${darkMode ? "bg-gray-800 text-gray-200 border-gray-700 hover:text-yellow-400" : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"}`}
             />
           </div>
 
           {/* Quote Tweet Section */}
           {quoteOpen && (
-            <div className={`mt-3 rounded-lg p-3 border ${darkMode ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
+            <div className={`mt-3 rounded-lg p-3 border transition-colors duration-200 ${darkMode ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
               <textarea
                 rows={3}
                 value={quoteText}
                 onChange={(e) => setQuoteText(e.target.value)}
                 placeholder="Add your thoughts to this quote tweet..."
-                className={`w-full p-3 border rounded-lg text-sm sm:text-base ${darkMode ? "bg-gray-900 border-gray-700 text-gray-100 focus:ring-yellow-400" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"}`}
+                className={`w-full p-3 border rounded-lg text-sm sm:text-base transition-colors duration-200 ${darkMode ? "bg-gray-900 border-gray-700 text-gray-100 focus:ring-yellow-400" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"}`}
               />
               <div className="mt-3 flex flex-col sm:flex-row gap-2 justify-end">
                 <Button text="Cancel" onClickHandler={() => setQuoteOpen(false)} styleType="secondary" className="w-full sm:w-auto px-4 py-2 text-sm" />
@@ -473,13 +470,13 @@ export default function TweetCard({ tweet, onUpdate }) {
           )}
 
           {/* Comment Input */}
-          <div className={`mt-4 rounded-lg p-3 border ${darkMode ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
+          <div className={`mt-4 rounded-lg p-3 border transition-colors duration-200 ${darkMode ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Write a comment..."
-                className={`flex-1 p-3 rounded-lg border text-sm sm:text-base ${darkMode ? "bg-gray-900 border-gray-700 text-gray-100 focus:ring-yellow-400" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"}`}
+                className={`flex-1 p-3 rounded-lg border text-sm sm:text-base transition-colors duration-200 ${darkMode ? "bg-gray-900 border-gray-700 text-gray-100 focus:ring-yellow-400" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"}`}
               />
               <Button text="Comment" onClickHandler={submitComment} disabled={!commentText.trim() || loadingAction} className="w-full sm:w-auto px-4 py-3 text-sm font-medium" />
             </div>
@@ -487,7 +484,7 @@ export default function TweetCard({ tweet, onUpdate }) {
 
           {/* Comments Section */}
           {showComments && (
-            <div className={`mt-4 border-t ${darkMode ? "border-gray-700" : "border-gray-200"} pt-4`}>
+            <div className={`mt-4 border-t transition-colors duration-200 ${darkMode ? "border-gray-700" : "border-gray-200"} pt-4`}>
               <CommentList
                 comments={tweetState.comments || []}
                 currentUserId={currentUserId}
@@ -502,4 +499,6 @@ export default function TweetCard({ tweet, onUpdate }) {
       </div>
     </Card>
   );
-}
+};
+
+export default React.memo(TweetCard);

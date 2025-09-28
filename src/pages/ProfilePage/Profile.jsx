@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import Button from "../../components/Button/Button";
 import Card from "../../components/Card/Card";
 import TweetCard from "../../components/TweetCard/TweetCard";
-import { AuthContext } from "../../context/context";
+import { AuthContext, ThemeContext } from "../../context/context";
 import {
   getUserProfile,
   toggleFollowService,
@@ -12,18 +12,10 @@ import {
   getUserQuotes,
 } from "./userService";
 
-// import { 
-//   getUserProfile,
-//   toggleFollowService,
-//   getUserTweets,
-//   getUserRetweets,
-//   getUserQuotes
-//  } from "../../api/userApi";
-
 const profileCache = new Map();
 
-function EmptyState({ message }) {
-  return <p className="text-center py-6 text-gray-500">{message}</p>;
+function EmptyState({ message, textClass }) {
+  return <p className={`text-center py-6 ${textClass}`}>{message}</p>;
 }
 
 const tryGetIdFromCandidate = (c) => {
@@ -43,7 +35,13 @@ const tryGetIdFromCandidate = (c) => {
 
 const hasProfileInfo = (p) => {
   if (!p) return false;
-  return Boolean(p.displayName || p.userName || p.fullName || p.profilePicture || p.avatar);
+  return Boolean(
+    p.displayName ||
+      p.userName ||
+      p.fullName ||
+      p.profilePicture ||
+      p.avatar
+  );
 };
 
 const resolveProfileById = async (id) => {
@@ -113,6 +111,7 @@ const resolveTweetUser = async (orig) => {
 
 export default function Profile() {
   const { user, loading: authLoading, logout } = useContext(AuthContext);
+  const { darkMode } = useContext(ThemeContext);
   const { userId } = useParams();
   const navigate = useNavigate();
 
@@ -150,7 +149,8 @@ export default function Profile() {
         const data = await getUserProfile(userId);
         if (mounted) setProfile(data);
       } catch (err) {
-        if (mounted) setProfileError(err?.message || "Failed to load profile");
+        if (mounted)
+          setProfileError(err?.message || "Failed to load profile");
       } finally {
         if (mounted) setLoadingProfile(false);
       }
@@ -205,10 +205,25 @@ export default function Profile() {
 
   useEffect(() => {
     if (!userId) return;
-    if (activeTab === "tweets" && tweets === null && !tweetsLoading) fetchTweets();
-    if (activeTab === "retweets" && retweets === null && !retweetsLoading) fetchRetweets();
-    if (activeTab === "quotes" && quotes === null && !quotesLoading) fetchQuotes();
-  }, [activeTab, userId, tweets, retweets, quotes, tweetsLoading, retweetsLoading, quotesLoading, fetchTweets, fetchRetweets, fetchQuotes]);
+    if (activeTab === "tweets" && tweets === null && !tweetsLoading)
+      fetchTweets();
+    if (activeTab === "retweets" && retweets === null && !retweetsLoading)
+      fetchRetweets();
+    if (activeTab === "quotes" && quotes === null && !quotesLoading)
+      fetchQuotes();
+  }, [
+    activeTab,
+    userId,
+    tweets,
+    retweets,
+    quotes,
+    tweetsLoading,
+    retweetsLoading,
+    quotesLoading,
+    fetchTweets,
+    fetchRetweets,
+    fetchQuotes,
+  ]);
 
   const handleLogout = () => {
     logout();
@@ -246,210 +261,143 @@ export default function Profile() {
     }
   };
 
-  if (authLoading || loadingProfile) return <p className="text-center mt-16 text-gray-500">Loading...</p>;
-  if (profileError) return <p className="text-center mt-16 text-red-600 font-medium">{profileError}</p>;
-  if (!profile) return <p className="text-center mt-16 text-gray-600">No profile found</p>;
+  const baseBg = darkMode ? "bg-gray-900" : "bg-white";
+  const cardBg = darkMode ? "bg-gray-800" : "bg-white";
+  const borderColor = darkMode ? "border-gray-700" : "border-gray-200";
+  const textPrimary = darkMode ? "text-gray-100" : "text-gray-900";
+  const textSecondary = darkMode ? "text-gray-400" : "text-gray-600";
+  const accentText = darkMode ? "text-blue-400" : "text-blue-600";
+
+  if (authLoading || loadingProfile)
+    return (
+      <p className={`text-center mt-16 ${textSecondary}`}>Loading...</p>
+    );
+  if (profileError)
+    return (
+      <p className="text-center mt-16 text-red-600 font-medium">
+        {profileError}
+      </p>
+    );
+  if (!profile)
+    return (
+      <p className={`text-center mt-16 ${textSecondary}`}>
+        No profile found
+      </p>
+    );
 
   const isOwnProfile = user && String(user._id) === String(profile._id);
 
-  const RetweetItem = ({ rt }) => {
-    const [actorName, setActorName] = useState("");
-    const [actorProfilePic, setActorProfilePic] = useState(null);
-    const [resolvedOrig, setResolvedOrig] = useState(null);
-
-    useEffect(() => {
-      let mounted = true;
-      const actor = rt?.user || rt?.retweetedBy || null;
-      const load = async () => {
-        if (!actor) {
-          if (mounted) {
-            setActorName("Unknown");
-            setActorProfilePic(null);
-          }
-        } else if (typeof actor === "object") {
-          if (hasProfileInfo(actor)) {
-            if (mounted) {
-              setActorName(actor.displayName || actor.userName || actor.fullName || "Unknown");
-              setActorProfilePic(actor.profilePicture || actor.avatar || null);
-            }
-          } else {
-            const id = tryGetIdFromCandidate(actor);
-            const prof = await resolveProfileById(id);
-            if (mounted) {
-              setActorName(prof ? (prof.displayName || prof.userName || prof.fullName || "Unknown") : "Unknown");
-              setActorProfilePic(prof?.profilePicture || prof?.avatar || null);
-            }
-          }
-        } else {
-          const id = tryGetIdFromCandidate(actor);
-          const prof = await resolveProfileById(id);
-          if (mounted) {
-            setActorName(prof ? (prof.displayName || prof.userName || prof.fullName || "Unknown") : "Unknown");
-            setActorProfilePic(prof?.profilePicture || prof?.avatar || null);
-          }
-        }
-
-        const origSource = rt?.originalTweet || rt?.tweet || rt || null;
-        if (!origSource) {
-          if (mounted) setResolvedOrig(null);
-          return;
-        }
-        const resolved = await resolveTweetUser(origSource);
-        if (mounted) setResolvedOrig(resolved);
-      };
-
-      load();
-      return () => {
-        mounted = false;
-      };
-    }, [rt]);
-
-    const orig = resolvedOrig;
-    return (
-      <div className="mb-4">
-        <div className="text-xs text-gray-500 mb-1 flex items-center gap-2">
-          <span>Retweeted by</span>
-          <span className="font-medium">{actorName || "Unknown"}</span>
-          {actorProfilePic ? <img src={actorProfilePic} alt={actorName} className="w-6 h-6 rounded-full object-cover" /> : null}
-        </div>
-        {orig ? <TweetCard tweet={orig} onUpdate={() => {}} /> : <EmptyState message="Original tweet not available" />}
-      </div>
-    );
-  };
-
-  const QuoteItem = ({ q }) => {
-    const [actorName, setActorName] = useState("");
-    const [actorProfilePic, setActorProfilePic] = useState(null);
-    const [resolvedOrig, setResolvedOrig] = useState(null);
-
-    useEffect(() => {
-      let mounted = true;
-      const actor = q?.user || null;
-      const load = async () => {
-        if (!actor) {
-          if (mounted) {
-            setActorName("Unknown");
-            setActorProfilePic(null);
-          }
-        } else if (typeof actor === "object") {
-          if (hasProfileInfo(actor)) {
-            if (mounted) {
-              setActorName(actor.displayName || actor.userName || actor.fullName || "Unknown");
-              setActorProfilePic(actor.profilePicture || actor.avatar || null);
-            }
-          } else {
-            const id = tryGetIdFromCandidate(actor);
-            const prof = await resolveProfileById(id);
-            if (mounted) {
-              setActorName(prof ? (prof.displayName || prof.userName || prof.fullName || "Unknown") : "Unknown");
-              setActorProfilePic(prof?.profilePicture || prof?.avatar || null);
-            }
-          }
-        } else {
-          const id = tryGetIdFromCandidate(actor);
-          const prof = await resolveProfileById(id);
-          if (mounted) {
-            setActorName(prof ? (prof.displayName || prof.userName || prof.fullName || "Unknown") : "Unknown");
-            setActorProfilePic(prof?.profilePicture || prof?.avatar || null);
-          }
-        }
-
-        const origSource = q?.originalTweet || q?.tweet || null;
-        if (!origSource) {
-          if (mounted) setResolvedOrig(null);
-          return;
-        }
-        const resolved = await resolveTweetUser(origSource);
-        if (mounted) setResolvedOrig(resolved);
-      };
-
-      load();
-      return () => {
-        mounted = false;
-      };
-    }, [q]);
-
-    const orig = resolvedOrig;
-    return (
-      <div className="mb-4">
-        <div className="text-xs text-gray-500 mb-1 flex items-center gap-2">
-          <span>Quoted by</span>
-          <span className="font-medium">{actorName || "Unknown"}</span>
-          {actorProfilePic ? <img src={actorProfilePic} alt={actorName} className="w-6 h-6 rounded-full object-cover" /> : null}
-        </div>
-        <div className="mb-2">
-          <Card className="p-3 bg-gray-50">
-            <div className="text-sm text-gray-800">{q?.text}</div>
-          </Card>
-        </div>
-        {orig ? <TweetCard tweet={orig} onUpdate={() => {}} /> : <EmptyState message="Original tweet not available" />}
-      </div>
-    );
-  };
-
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6">
-      <Card className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6 p-4 sm:p-6">
-        <div className="flex flex-col md:flex-row items-center md:items-center gap-4 md:gap-6 w-full">
+    <div className={`max-w-4xl mx-auto p-4 sm:p-6 ${baseBg} min-h-screen`}>
+      <Card
+        className={`flex flex-col md:flex-row items-center md:items-start justify-between gap-6 p-4 sm:p-6 ${cardBg} border ${borderColor}`}
+      >
+        <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 w-full">
           <img
             src={profile.profilePicture || "/default-avatar.png"}
             alt={profile.fullName || profile.userName}
             className="w-20 h-20 md:w-28 md:h-28 rounded-full border-2 border-gray-200 shadow-md object-cover hover:scale-105 transition-transform duration-300"
           />
           <div className="mt-3 md:mt-0 text-center md:text-left">
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">{profile.fullName || profile.displayName || profile.userName}</h2>
-            <p className="text-gray-500 text-sm">@{profile.userName}</p>
-            {profile.displayName && <p className="text-gray-600 italic mt-1">{profile.displayName}</p>}
+            <h2 className={`text-2xl md:text-3xl font-bold ${textPrimary}`}>
+              {profile.fullName ||
+                profile.displayName ||
+                profile.userName}
+            </h2>
+            <p className={`${textSecondary} text-sm`}>
+              @{profile.userName}
+            </p>
+            {profile.displayName && (
+              <p className={`${textSecondary} italic mt-1`}>
+                {profile.displayName}
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row items-stretch md:items-end gap-3 w-full md:w-auto mt-3 md:mt-0">
+        <div className="flex flex-col md:flex-row items-stretch gap-3 w-full md:w-auto mt-3 md:mt-0">
           {isOwnProfile ? (
-            <Button text="Logout" styleType="error" onClickHandler={handleLogout} className="w-full md:w-auto px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300" />
+            <Button
+              text="Logout"
+              styleType="error"
+              onClickHandler={handleLogout}
+              className="w-full md:w-auto px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300"
+            />
           ) : (
             <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
               <Button
-                text={followLoading ? "Loading..." : profile.isFollowed ? "Unfollow" : "Follow"}
+                text={
+                  followLoading
+                    ? "Loading..."
+                    : profile.isFollowed
+                    ? "Unfollow"
+                    : "Follow"
+                }
                 styleType="primary"
                 onClickHandler={handleToggleFollow}
                 disabled={followLoading}
                 className="w-full md:w-auto px-4 py-2 rounded-lg"
               />
-              <Button text="Message" styleType="secondary" onClickHandler={() => alert("Open chat")} className="w-full md:w-auto" />
+              <Button
+                text="Message"
+                styleType="secondary"
+                onClickHandler={() => alert("Open chat")}
+                className="w-full md:w-auto"
+              />
             </div>
           )}
         </div>
       </Card>
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="text-center py-4">
-          <Link to={`/followList?tab=followers&userId=${profile._id}`} className="block">
-            <p className="text-gray-500 text-sm">Followers</p>
-            <p className="text-2xl font-bold">{profile.followerCount ?? 0}</p>
+        <Card className={`text-center py-4 ${cardBg} border ${borderColor}`}>
+          <Link
+            to={`/followList?tab=followers&userId=${profile._id}`}
+            className="block"
+          >
+            <p className={`${textSecondary} text-sm`}>Followers</p>
+            <p className={`text-2xl font-bold ${textPrimary}`}>
+              {profile.followerCount ?? 0}
+            </p>
           </Link>
         </Card>
-        <Card className="text-center py-4">
-          <Link to={`/followList?tab=following&userId=${profile._id}`} className="block">
-            <p className="text-gray-500 text-sm">Following</p>
-            <p className="text-2xl font-bold">{profile.followingCount ?? 0}</p>
+        <Card className={`text-center py-4 ${cardBg} border ${borderColor}`}>
+          <Link
+            to={`/followList?tab=following&userId=${profile._id}`}
+            className="block"
+          >
+            <p className={`${textSecondary} text-sm`}>Following</p>
+            <p className={`text-2xl font-bold ${textPrimary}`}>
+              {profile.followingCount ?? 0}
+            </p>
           </Link>
         </Card>
-        <Card className="text-center py-4">
-          <p className="text-gray-500 text-sm">Tweets</p>
-          <p className="text-2xl font-bold">{Array.isArray(tweets) ? tweets.length : 0}</p>
+        <Card className={`text-center py-4 ${cardBg} border ${borderColor}`}>
+          <p className={`${textSecondary} text-sm`}>Tweets</p>
+          <p className={`text-2xl font-bold ${textPrimary}`}>
+            {Array.isArray(tweets) ? tweets.length : 0}
+          </p>
         </Card>
-        <Card className="text-center py-4">
-          <p className="text-gray-500 text-sm">Role</p>
-          <p className="text-2xl font-bold">{profile.role ?? "user"}</p>
+        <Card className={`text-center py-4 ${cardBg} border ${borderColor}`}>
+          <p className={`${textSecondary} text-sm`}>Role</p>
+          <p className={`text-2xl font-bold ${textPrimary}`}>
+            {profile.role ?? "user"}
+          </p>
         </Card>
       </div>
 
       <div className="mt-8">
-        <div className="flex flex-wrap gap-2 border-b pb-2 justify-center md:justify-start">
+        <div
+          className={`flex flex-wrap gap-2 border-b pb-2 justify-center md:justify-start ${borderColor}`}
+        >
           {["tweets", "retweets", "quotes"].map((tab) => (
             <button
               key={tab}
-              className={`px-3 py-2 text-sm md:text-base ${activeTab === tab ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-600"}`}
+              className={`px-3 py-2 text-sm md:text-base ${
+                activeTab === tab
+                  ? `border-b-2 border-blue-500 ${accentText} font-semibold`
+                  : `${textSecondary} hover:${accentText}`
+              }`}
               onClick={() => setActiveTab(tab)}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -460,41 +408,93 @@ export default function Profile() {
         <div className="mt-6 space-y-4">
           {activeTab === "tweets" && (
             <>
-              {tweetsLoading && <EmptyState message="Loading tweets..." />}
-              {tweetsError && <p className="text-red-600">{tweetsError}</p>}
-              {!tweetsLoading && Array.isArray(tweets) && tweets.length === 0 && <EmptyState message="No tweets yet" />}
-              {Array.isArray(tweets) && tweets.map((t) => <TweetCard key={t._id || t.id} tweet={t} onUpdate={() => {}} />)}
+              {tweetsLoading && (
+                <EmptyState message="Loading tweets..." textClass={textSecondary} />
+              )}
+              {tweetsError && (
+                <p className="text-red-600">{tweetsError}</p>
+              )}
+              {!tweetsLoading &&
+                Array.isArray(tweets) &&
+                tweets.length === 0 && (
+                  <EmptyState message="No tweets yet" textClass={textSecondary} />
+                )}
+              {Array.isArray(tweets) &&
+                tweets.map((t) => (
+                  <TweetCard key={t._id || t.id} tweet={t} onUpdate={() => {}} />
+                ))}
             </>
           )}
 
           {activeTab === "retweets" && (
             <>
-              {retweetsLoading && <EmptyState message="Loading retweets..." />}
-              {retweetsError && <p className="text-red-600">{retweetsError}</p>}
-              {!retweetsLoading && Array.isArray(retweets) && retweets.length === 0 && <EmptyState message="No retweets yet" />}
-              {Array.isArray(retweets) && retweets.map((r) => <RetweetItem key={r._id || r.id} rt={r} />)}
+              {retweetsLoading && (
+                <EmptyState message="Loading retweets..." textClass={textSecondary} />
+              )}
+              {retweetsError && (
+                <p className="text-red-600">{retweetsError}</p>
+              )}
+              {!retweetsLoading &&
+                Array.isArray(retweets) &&
+                retweets.length === 0 && (
+                  <EmptyState message="No retweets yet" textClass={textSecondary} />
+                )}
+              {Array.isArray(retweets) &&
+                retweets.map((r) => (
+                  <div key={r._id || r.id} className={`${cardBg} border ${borderColor} rounded-lg p-4`}>
+                    <TweetCard tweet={r} onUpdate={() => {}} />
+                  </div>
+                ))}
             </>
           )}
 
           {activeTab === "quotes" && (
             <>
-              {quotesLoading && <EmptyState message="Loading quotes..." />}
-              {quotesError && <p className="text-red-600">{quotesError}</p>}
-              {!quotesLoading && Array.isArray(quotes) && quotes.length === 0 && <EmptyState message="No quotes yet" />}
-              {Array.isArray(quotes) && quotes.map((q) => <QuoteItem key={q._id || q.id} q={q} />)}
+              {quotesLoading && (
+                <EmptyState message="Loading quotes..." textClass={textSecondary} />
+              )}
+              {quotesError && (
+                <p className="text-red-600">{quotesError}</p>
+              )}
+              {!quotesLoading &&
+                Array.isArray(quotes) &&
+                quotes.length === 0 && (
+                  <EmptyState message="No quotes yet" textClass={textSecondary} />
+                )}
+              {Array.isArray(quotes) &&
+                quotes.map((q) => (
+                  <div key={q._id || q.id} className={`${cardBg} border ${borderColor} rounded-lg p-4`}>
+                    <TweetCard tweet={q} onUpdate={() => {}} />
+                  </div>
+                ))}
             </>
           )}
         </div>
       </div>
 
-      <Card className="mt-8 p-4 sm:p-6">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Profile Details</h3>
-        <div className="space-y-3 text-gray-700">
-          <p><span className="font-medium">Email:</span> {profile.email}</p>
-          {profile.mobileNumber && <p><span className="font-medium">Mobile:</span> {profile.mobileNumber}</p>}
+      <Card
+        className={`mt-8 p-4 sm:p-6 ${cardBg} border ${borderColor}`}
+      >
+        <h3 className={`text-xl font-semibold mb-4 ${textPrimary}`}>
+          Profile Details
+        </h3>
+        <div className={`space-y-3 ${textSecondary}`}>
+          <p>
+            <span className="font-medium">Email:</span> {profile.email}
+          </p>
+          {profile.mobileNumber && (
+            <p>
+              <span className="font-medium">Mobile:</span>{" "}
+              {profile.mobileNumber}
+            </p>
+          )}
           <p>
             <span className="font-medium">Verified:</span>{" "}
-            {profile.isVerified ? <span className="text-green-600 font-semibold">Yes</span> : <span className="text-red-600 font-semibold">No</span>}
+            {profile.isVerified ? (
+              <span className="text-green-600 font-semibold">Yes</span>
+            ) : (
+              <span className="text-red-600 font-semibold">No</span>
+            )}
           </p>
         </div>
       </Card>
