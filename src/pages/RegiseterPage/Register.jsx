@@ -3,7 +3,7 @@ import Input from "../../components/Input/Input";
 import Button from "../../components/Button/Button";
 import { z } from "zod";
 import { Link } from "react-router-dom";
-import { registerUser } from './registerService'
+import { registerUser } from "./registerService";
 
 const registerSchema = z.object({
   fullName: z
@@ -13,7 +13,10 @@ const registerSchema = z.object({
     .string({ required_error: "Username is required" })
     .min(3, "Username must be at least 3 characters")
     .max(30, "Username must be less than 30 characters")
-    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+    .regex(
+      /^[a-zA-Z0-9_]+$/,
+      "Username can only contain letters, numbers, and underscores"
+    ),
   email: z
     .string({ required_error: "Email is required" })
     .email("Invalid email format"),
@@ -88,7 +91,8 @@ function Register() {
       Object.entries(serverData.errors).forEach(([k, v]) => {
         const clientKey = mapServerKey(k);
         if (Array.isArray(v)) fieldErrors[clientKey] = v.join(", ");
-        else if (typeof v === "object" && v.message) fieldErrors[clientKey] = v.message;
+        else if (typeof v === "object" && v.message)
+          fieldErrors[clientKey] = v.message;
         else fieldErrors[clientKey] = String(v);
       });
     } else if (serverData && typeof serverData === "object") {
@@ -97,14 +101,20 @@ function Register() {
         const lowerK = k.toLowerCase();
         const clientKey =
           mapServerKey(k) ||
-          (lowerK.includes("user") ? "userName" :
-           lowerK.includes("name") ? "fullName" :
-           lowerK.includes("email") ? "email" :
-           lowerK.includes("pass") ? "password" :
-           lowerK.includes("mobile") ? "mobileNumber" :
-           k);
+          (lowerK.includes("user")
+            ? "userName"
+            : lowerK.includes("name")
+            ? "fullName"
+            : lowerK.includes("email")
+            ? "email"
+            : lowerK.includes("pass")
+            ? "password"
+            : lowerK.includes("mobile")
+            ? "mobileNumber"
+            : k);
         if (Array.isArray(v)) fieldErrors[clientKey] = v.join(", ");
-        else if (typeof v === "object" && v.message) fieldErrors[clientKey] = v.message;
+        else if (typeof v === "object" && v.message)
+          fieldErrors[clientKey] = v.message;
         else fieldErrors[clientKey] = String(v);
       });
     }
@@ -127,9 +137,11 @@ function Register() {
       const zodIssues = result.error?.issues || result.error?.errors || [];
       zodIssues.forEach((err) => {
         const path =
-          Array.isArray(err.path) && err.path.length ? err.path[0] :
-          typeof err.path === "string" ? err.path :
-          "global";
+          Array.isArray(err.path) && err.path.length
+            ? err.path[0]
+            : typeof err.path === "string"
+            ? err.path
+            : "global";
         fieldErrors[path] = err.message || String(err);
       });
       setErrors(fieldErrors);
@@ -138,10 +150,11 @@ function Register() {
 
     setLoading(true);
     try {
-      // Use registerUser service which handles FormData vs JSON and targets the backend directly
       const res = await registerUser(form);
 
-      setMessage(res.data?.message || res.data?.msg || "User created successfully");
+      setMessage(
+        res.data?.message || res.data?.msg || "User created successfully"
+      );
 
       setForm({
         fullName: "",
@@ -159,7 +172,9 @@ function Register() {
       if (!hadFieldErrors) {
         const msg =
           serverData?.message ||
-          (serverData?.error && typeof serverData.error === "string" && serverData.error) ||
+          (serverData?.error &&
+            typeof serverData.error === "string" &&
+            serverData.error) ||
           err.message ||
           "Something went wrong";
         setErrors((prev) => ({ ...prev, global: msg }));
@@ -185,7 +200,9 @@ function Register() {
             placeholder="Enter your full name"
             required
           />
-          {errors.fullName && <p className="text-red-500 text-sm">{errors.fullName}</p>}
+          {errors.fullName && (
+            <p className="text-red-500 text-sm">{errors.fullName}</p>
+          )}
 
           <Input
             label="Username"
@@ -195,7 +212,9 @@ function Register() {
             placeholder="Enter username"
             required
           />
-          {errors.userName && <p className="text-red-500 text-sm">{errors.userName}</p>}
+          {errors.userName && (
+            <p className="text-red-500 text-sm">{errors.userName}</p>
+          )}
 
           <Input
             label="Email"
@@ -206,7 +225,9 @@ function Register() {
             placeholder="Enter email"
             required
           />
-          {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+          {errors.email && (
+            <p className="text-red-500 text-sm">{errors.email}</p>
+          )}
 
           <Input
             label="Password"
@@ -217,7 +238,9 @@ function Register() {
             placeholder="Enter password"
             required
           />
-          {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+          {errors.password && (
+            <p className="text-red-500 text-sm">{errors.password}</p>
+          )}
 
           <Input
             label="Mobile Number"
@@ -228,7 +251,9 @@ function Register() {
             placeholder="Enter mobile number"
             required
           />
-          {errors.mobileNumber && <p className="text-red-500 text-sm">{errors.mobileNumber}</p>}
+          {errors.mobileNumber && (
+            <p className="text-red-500 text-sm">{errors.mobileNumber}</p>
+          )}
 
           <Input
             label="Display Name"
@@ -237,17 +262,20 @@ function Register() {
             onChange={handleChange}
             placeholder="Enter display name"
           />
-          {errors.displayName && <p className="text-red-500 text-sm">{errors.displayName}</p>}
+          {errors.displayName && (
+            <p className="text-red-500 text-sm">{errors.displayName}</p>
+          )}
 
           <Input
-            key={form.profilePicture ? form.profilePicture.name : "fileInput"}
             label="Profile Picture"
             name="profilePicture"
             type="file"
             onChange={handleFileChange}
             accept="image/*"
           />
-          {errors.profilePicture && <p className="text-red-500 text-sm">{errors.profilePicture}</p>}
+          {errors.profilePicture && (
+            <p className="text-red-500 text-sm">{errors.profilePicture}</p>
+          )}
 
           <Button
             text={loading ? "Creating Account..." : "Register"}
@@ -258,8 +286,14 @@ function Register() {
           />
         </div>
 
-        {errors.global && <p className="mt-3 text-red-600 text-sm text-center">{errors.global}</p>}
-        {message && <p className="mt-3 text-green-600 text-sm text-center">{message}</p>}
+        {errors.global && (
+          <p className="mt-3 text-red-600 text-sm text-center">
+            {errors.global}
+          </p>
+        )}
+        {message && (
+          <p className="mt-3 text-green-600 text-sm text-center">{message}</p>
+        )}
 
         <p className="text-sm text-gray-600 text-center mt-6">
           Already have an account?{" "}
