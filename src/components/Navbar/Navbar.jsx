@@ -154,4 +154,3 @@ function NavbarComponent() {
 const Navbar = memo(NavbarComponent);
 
 export default Navbar;
-3
