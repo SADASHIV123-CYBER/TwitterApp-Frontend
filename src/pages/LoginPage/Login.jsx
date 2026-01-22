@@ -22,11 +22,9 @@ function Login() {
     setLoading(true);
 
     try {
-      // ✅ Login request
       const loginRes = await client.post("/auth", form);
       console.log("loginRes:", loginRes.status, loginRes.data);
 
-      // ✅ Verify user (cookie now sent automatically)
       const verifyRes = await client.get("/verify");
       console.log("verifyRes:", verifyRes.status, verifyRes.data);
 

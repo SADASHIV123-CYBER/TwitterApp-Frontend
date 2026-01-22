@@ -72,6 +72,7 @@ export default function Home() {
       {/* Composer */}
       <div className="mb-6">
         <TweetComposer onCreated={handleCreated} disabled={!user} />
+        
         {!user && (
           <Link to="/login">
             <p

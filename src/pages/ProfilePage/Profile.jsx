@@ -1,3 +1,508 @@
+// import { useState, useEffect, useContext, useCallback } from "react";
+// import { useParams, useNavigate, Link } from "react-router-dom";
+// import Button from "../../components/Button/Button";
+// import Card from "../../components/Card/Card";
+// import TweetCard from "../../components/TweetCard/TweetCard";
+// import { AuthContext, ThemeContext } from "../../context/context";
+// import {
+//   getUserProfile,
+//   toggleFollowService,
+//   getUserTweets,
+//   getUserRetweets,
+//   getUserQuotes,
+// } from "./userService";
+
+// const profileCache = new Map();
+
+// function EmptyState({ message, textClass }) {
+//   return <p className={`text-center py-6 ${textClass}`}>{message}</p>;
+// }
+
+// const tryGetIdFromCandidate = (c) => {
+//   if (!c) return null;
+//   if (typeof c === "string") return c;
+//   if (typeof c === "number") return String(c);
+//   if (typeof c === "object") {
+//     if (c._id) return String(c._id);
+//     if (c.id) return String(c.id);
+//     if (c.toString && typeof c.toString === "function") {
+//       const s = c.toString();
+//       if (s && s !== "[object Object]") return s;
+//     }
+//   }
+//   return null;
+// };
+
+// const hasProfileInfo = (p) => {
+//   if (!p) return false;
+//   return Boolean(
+//     p.displayName ||
+//       p.userName ||
+//       p.fullName ||
+//       p.profilePicture ||
+//       p.avatar
+//   );
+// };
+
+// const resolveProfileById = async (id) => {
+//   if (!id) return null;
+//   if (profileCache.has(id)) return profileCache.get(id);
+//   try {
+//     const prof = await getUserProfile(id);
+//     if (prof) profileCache.set(id, prof);
+//     return prof;
+//   } catch {
+//     return null;
+//   }
+// };
+
+// const resolveTweetUser = async (orig) => {
+//   if (!orig) return null;
+//   const tweet = { ...orig };
+//   const candidates = [
+//     tweet.user,
+//     tweet.author,
+//     tweet.postedBy,
+//     tweet.userId,
+//     tweet.authorId,
+//     tweet.poster,
+//     tweet.owner,
+//     tweet.createdBy,
+//     tweet.created_by,
+//   ];
+//   let candidate = null;
+//   for (let c of candidates) {
+//     if (c !== undefined && c !== null) {
+//       candidate = c;
+//       break;
+//     }
+//   }
+//   if (!candidate) return tweet;
+//   if (typeof candidate === "object") {
+//     if (hasProfileInfo(candidate)) {
+//       tweet.user = candidate;
+//       return tweet;
+//     }
+//     const id = tryGetIdFromCandidate(candidate);
+//     if (id) {
+//       const prof = await resolveProfileById(id);
+//       if (prof) {
+//         tweet.user = prof;
+//         return tweet;
+//       }
+//       tweet.user = candidate;
+//       return tweet;
+//     }
+//     tweet.user = candidate;
+//     return tweet;
+//   }
+//   const id = tryGetIdFromCandidate(candidate);
+//   if (id) {
+//     const prof = await resolveProfileById(id);
+//     if (prof) {
+//       tweet.user = prof;
+//       return tweet;
+//     }
+//     tweet.user = { _id: id };
+//     return tweet;
+//   }
+//   return tweet;
+// };
+
+// export default function Profile() {
+//   const { user, loading: authLoading, logout } = useContext(AuthContext);
+//   const { darkMode } = useContext(ThemeContext);
+//   const { userId } = useParams();
+//   const navigate = useNavigate();
+
+//   const [profile, setProfile] = useState(null);
+//   const [loadingProfile, setLoadingProfile] = useState(true);
+//   const [profileError, setProfileError] = useState("");
+
+//   const [activeTab, setActiveTab] = useState("tweets");
+
+//   const [tweets, setTweets] = useState(null);
+//   const [tweetsLoading, setTweetsLoading] = useState(false);
+//   const [tweetsError, setTweetsError] = useState("");
+
+//   const [retweets, setRetweets] = useState(null);
+//   const [retweetsLoading, setRetweetsLoading] = useState(false);
+//   const [retweetsError, setRetweetsError] = useState("");
+
+//   const [quotes, setQuotes] = useState(null);
+//   const [quotesLoading, setQuotesLoading] = useState(false);
+//   const [quotesError, setQuotesError] = useState("");
+
+//   const [followLoading, setFollowLoading] = useState(false);
+
+//   useEffect(() => {
+//     if (!authLoading && !user) navigate("/login");
+//   }, [authLoading, user, navigate]);
+
+//   useEffect(() => {
+//     if (!userId) return;
+//     let mounted = true;
+//     const fetchProfile = async () => {
+//       setLoadingProfile(true);
+//       setProfileError("");
+//       try {
+//         const data = await getUserProfile(userId);
+//         if (mounted) setProfile(data);
+//       } catch (err) {
+//         if (mounted)
+//           setProfileError(err?.message || "Failed to load profile");
+//       } finally {
+//         if (mounted) setLoadingProfile(false);
+//       }
+//     };
+//     fetchProfile();
+//     return () => {
+//       mounted = false;
+//     };
+//   }, [userId]);
+
+//   const fetchTweets = useCallback(async () => {
+//     setTweetsLoading(true);
+//     setTweetsError("");
+//     try {
+//       const data = await getUserTweets(userId);
+//       setTweets(Array.isArray(data) ? data : []);
+//     } catch (err) {
+//       setTweetsError(err?.message || "Failed to load tweets");
+//       setTweets([]);
+//     } finally {
+//       setTweetsLoading(false);
+//     }
+//   }, [userId]);
+
+//   const fetchRetweets = useCallback(async () => {
+//     setRetweetsLoading(true);
+//     setRetweetsError("");
+//     try {
+//       const data = await getUserRetweets(userId);
+//       setRetweets(Array.isArray(data) ? data : []);
+//     } catch (err) {
+//       setRetweetsError(err?.message || "Failed to load retweets");
+//       setRetweets([]);
+//     } finally {
+//       setRetweetsLoading(false);
+//     }
+//   }, [userId]);
+
+//   const fetchQuotes = useCallback(async () => {
+//     setQuotesLoading(true);
+//     setQuotesError("");
+//     try {
+//       const data = await getUserQuotes(userId);
+//       setQuotes(Array.isArray(data) ? data : []);
+//     } catch (err) {
+//       setQuotesError(err?.message || "Failed to load quotes");
+//       setQuotes([]);
+//     } finally {
+//       setQuotesLoading(false);
+//     }
+//   }, [userId]);
+
+//   useEffect(() => {
+//     if (!userId) return;
+//     if (activeTab === "tweets" && tweets === null && !tweetsLoading)
+//       fetchTweets();
+//     if (activeTab === "retweets" && retweets === null && !retweetsLoading)
+//       fetchRetweets();
+//     if (activeTab === "quotes" && quotes === null && !quotesLoading)
+//       fetchQuotes();
+//   }, [
+//     activeTab,
+//     userId,
+//     tweets,
+//     retweets,
+//     quotes,
+//     tweetsLoading,
+//     retweetsLoading,
+//     quotesLoading,
+//     fetchTweets,
+//     fetchRetweets,
+//     fetchQuotes,
+//   ]);
+
+//   const handleLogout = () => {
+//     logout();
+//     navigate("/login");
+//   };
+
+//   const handleToggleFollow = async () => {
+//     if (!profile) return;
+//     setFollowLoading(true);
+//     try {
+//       const result = await toggleFollowService(profile._id);
+//       setProfile((prev) => {
+//         if (!prev) return prev;
+//         const prevFollowerCount = prev.followerCount ?? 0;
+//         let isFollowed = prev.isFollowed ?? false;
+//         if (result && typeof result.action === "string") {
+//           isFollowed = result.action === "followed";
+//         } else if (result && typeof result.followerCount === "number") {
+//           isFollowed = result.followerCount > prevFollowerCount;
+//         } else {
+//           isFollowed = !isFollowed;
+//         }
+//         return {
+//           ...prev,
+//           followerCount: result?.followerCount ?? prev.followerCount,
+//           followingCount: result?.followingCount ?? prev.followingCount,
+//           isFollowed,
+//         };
+//       });
+//     } catch (err) {
+//       console.error("Follow toggle failed", err);
+//       alert(err?.message || "Failed to follow/unfollow");
+//     } finally {
+//       setFollowLoading(false);
+//     }
+//   };
+
+//   const baseBg = darkMode ? "bg-gray-900" : "bg-white";
+//   const cardBg = darkMode ? "bg-gray-800" : "bg-white";
+//   const borderColor = darkMode ? "border-gray-700" : "border-gray-200";
+//   const textPrimary = darkMode ? "text-gray-100" : "text-gray-900";
+//   const textSecondary = darkMode ? "text-gray-400" : "text-gray-600";
+//   const accentText = darkMode ? "text-blue-400" : "text-blue-600";
+
+//   if (authLoading || loadingProfile)
+//     return (
+//       <p className={`text-center mt-16 ${textSecondary}`}>Loading...</p>
+//     );
+//   if (profileError)
+//     return (
+//       <p className="text-center mt-16 text-red-600 font-medium">
+//         {profileError}
+//       </p>
+//     );
+//   if (!profile)
+//     return (
+//       <p className={`text-center mt-16 ${textSecondary}`}>
+//         No profile found
+//       </p>
+//     );
+
+//   const isOwnProfile = user && String(user._id) === String(profile._id);
+
+//   return (
+//     <div className={`max-w-4xl mx-auto p-4 sm:p-6 ${baseBg} min-h-screen`}>
+//       <Card
+//         className={`flex flex-col md:flex-row items-center md:items-start justify-between gap-6 p-4 sm:p-6 ${cardBg} border ${borderColor}`}
+//       >
+//         <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 w-full">
+//           <img
+//             src={profile.profilePicture || "/default-avatar.png"}
+//             alt={profile.fullName || profile.userName}
+//             className="w-20 h-20 md:w-28 md:h-28 rounded-full border-2 border-gray-200 shadow-md object-cover hover:scale-105 transition-transform duration-300"
+//           />
+//           <div className="mt-3 md:mt-0 text-center md:text-left">
+//             <h2 className={`text-2xl md:text-3xl font-bold ${textPrimary}`}>
+//               {profile.fullName ||
+//                 profile.displayName ||
+//                 profile.userName}
+//             </h2>
+//             <p className={`${textSecondary} text-sm`}>
+//               @{profile.userName}
+//             </p>
+//             {profile.displayName && (
+//               <p className={`${textSecondary} italic mt-1`}>
+//                 {profile.displayName}
+//               </p>
+//             )}
+//           </div>
+//         </div>
+
+//         <div className="flex flex-col md:flex-row items-stretch gap-3 w-full md:w-auto mt-3 md:mt-0">
+//           {isOwnProfile ? (
+//             <Button
+//               text="Logout"
+//               styleType="error"
+//               onClickHandler={handleLogout}
+//               className="w-full md:w-auto px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300"
+//             />
+//           ) : (
+//             <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+//               <Button
+//                 text={
+//                   followLoading
+//                     ? "Loading..."
+//                     : profile.isFollowed
+//                     ? "Unfollow"
+//                     : "Follow"
+//                 }
+//                 styleType="primary"
+//                 onClickHandler={handleToggleFollow}
+//                 disabled={followLoading}
+//                 className="w-full md:w-auto px-4 py-2 rounded-lg"
+//               />
+//               <Button
+//                 text="Message"
+//                 styleType="secondary"
+//                 onClickHandler={() => alert("Open chat")}
+//                 className="w-full md:w-auto"
+//               />
+//             </div>
+//           )}
+//         </div>
+//       </Card>
+
+//       <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
+//         <Card className={`text-center py-4 ${cardBg} border ${borderColor}`}>
+//           <Link
+//             to={`/followList?tab=followers&userId=${profile._id}`}
+//             className="block"
+//           >
+//             <p className={`${textSecondary} text-sm`}>Followers</p>
+//             <p className={`text-2xl font-bold ${textPrimary}`}>
+//               {profile.followerCount ?? 0}
+//             </p>
+//           </Link>
+//         </Card>
+//         <Card className={`text-center py-4 ${cardBg} border ${borderColor}`}>
+//           <Link
+//             to={`/followList?tab=following&userId=${profile._id}`}
+//             className="block"
+//           >
+//             <p className={`${textSecondary} text-sm`}>Following</p>
+//             <p className={`text-2xl font-bold ${textPrimary}`}>
+//               {profile.followingCount ?? 0}
+//             </p>
+//           </Link>
+//         </Card>
+//         <Card className={`text-center py-4 ${cardBg} border ${borderColor}`}>
+//           <p className={`${textSecondary} text-sm`}>Tweets</p>
+//           <p className={`text-2xl font-bold ${textPrimary}`}>
+//             {Array.isArray(tweets) ? tweets.length : 0}
+//           </p>
+//         </Card>
+//         <Card className={`text-center py-4 ${cardBg} border ${borderColor}`}>
+//           <p className={`${textSecondary} text-sm`}>Role</p>
+//           <p className={`text-2xl font-bold ${textPrimary}`}>
+//             {profile.role ?? "user"}
+//           </p>
+//         </Card>
+//       </div>
+
+//       <div className="mt-8">
+//         <div
+//           className={`flex flex-wrap gap-2 border-b pb-2 justify-center md:justify-start ${borderColor}`}
+//         >
+//           {["tweets", "retweets", "quotes"].map((tab) => (
+//             <button
+//               key={tab}
+//               className={`px-3 py-2 text-sm md:text-base ${
+//                 activeTab === tab
+//                   ? `border-b-2 border-blue-500 ${accentText} font-semibold`
+//                   : `${textSecondary} hover:${accentText}`
+//               }`}
+//               onClick={() => setActiveTab(tab)}
+//             >
+//               {tab.charAt(0).toUpperCase() + tab.slice(1)}
+//             </button>
+//           ))}
+//         </div>
+
+//         <div className="mt-6 space-y-4">
+//           {activeTab === "tweets" && (
+//             <>
+//               {tweetsLoading && (
+//                 <EmptyState message="Loading tweets..." textClass={textSecondary} />
+//               )}
+//               {tweetsError && (
+//                 <p className="text-red-600">{tweetsError}</p>
+//               )}
+//               {!tweetsLoading &&
+//                 Array.isArray(tweets) &&
+//                 tweets.length === 0 && (
+//                   <EmptyState message="No tweets yet" textClass={textSecondary} />
+//                 )}
+//               {Array.isArray(tweets) &&
+//                 tweets.map((t) => (
+//                   <TweetCard key={t._id || t.id} tweet={t} onUpdate={() => {}} />
+//                 ))}
+//             </>
+//           )}
+
+//           {activeTab === "retweets" && (
+//             <>
+//               {retweetsLoading && (
+//                 <EmptyState message="Loading retweets..." textClass={textSecondary} />
+//               )}
+//               {retweetsError && (
+//                 <p className="text-red-600">{retweetsError}</p>
+//               )}
+//               {!retweetsLoading &&
+//                 Array.isArray(retweets) &&
+//                 retweets.length === 0 && (
+//                   <EmptyState message="No retweets yet" textClass={textSecondary} />
+//                 )}
+//               {Array.isArray(retweets) &&
+//                 retweets.map((r) => (
+//                   <div key={r._id || r.id} className={`${cardBg} border ${borderColor} rounded-lg p-4`}>
+//                     <TweetCard tweet={r} onUpdate={() => {}} />
+//                   </div>
+//                 ))}
+//             </>
+//           )}
+
+//           {activeTab === "quotes" && (
+//             <>
+//               {quotesLoading && (
+//                 <EmptyState message="Loading quotes..." textClass={textSecondary} />
+//               )}
+//               {quotesError && (
+//                 <p className="text-red-600">{quotesError}</p>
+//               )}
+//               {!quotesLoading &&
+//                 Array.isArray(quotes) &&
+//                 quotes.length === 0 && (
+//                   <EmptyState message="No quotes yet" textClass={textSecondary} />
+//                 )}
+//               {Array.isArray(quotes) &&
+//                 quotes.map((q) => (
+//                   <div key={q._id || q.id} className={`${cardBg} border ${borderColor} rounded-lg p-4`}>
+//                     <TweetCard tweet={q} onUpdate={() => {}} />
+//                   </div>
+//                 ))}
+//             </>
+//           )}
+//         </div>
+//       </div>
+
+//       <Card
+//         className={`mt-8 p-4 sm:p-6 ${cardBg} border ${borderColor}`}
+//       >
+//         <h3 className={`text-xl font-semibold mb-4 ${textPrimary}`}>
+//           Profile Details
+//         </h3>
+//         <div className={`space-y-3 ${textSecondary}`}>
+//           <p>
+//             <span className="font-medium">Email:</span> {profile.email}
+//           </p>
+//           {profile.mobileNumber && (
+//             <p>
+//               <span className="font-medium">Mobile:</span>{" "}
+//               {profile.mobileNumber}
+//             </p>
+//           )}
+//           <p>
+//             <span className="font-medium">Verified:</span>{" "}
+//             {profile.isVerified ? (
+//               <span className="text-green-600 font-semibold">Yes</span>
+//             ) : (
+//               <span className="text-red-600 font-semibold">No</span>
+//             )}
+//           </p>
+//         </div>
+//       </Card>
+//     </div>
+//   );
+// }
+
+
 import { useState, useEffect, useContext, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Button from "../../components/Button/Button";
@@ -11,6 +516,7 @@ import {
   getUserRetweets,
   getUserQuotes,
 } from "./userService";
+
 
 const profileCache = new Map();
 
@@ -81,6 +587,7 @@ const resolveTweetUser = async (orig) => {
   if (typeof candidate === "object") {
     if (hasProfileInfo(candidate)) {
       tweet.user = candidate;
+      tweet.author = candidate; // Add this line for TweetCard compatibility
       return tweet;
     }
     const id = tryGetIdFromCandidate(candidate);
@@ -88,12 +595,15 @@ const resolveTweetUser = async (orig) => {
       const prof = await resolveProfileById(id);
       if (prof) {
         tweet.user = prof;
+        tweet.author = prof; // Add this line for TweetCard compatibility
         return tweet;
       }
       tweet.user = candidate;
+      tweet.author = candidate; // Add this line for TweetCard compatibility
       return tweet;
     }
     tweet.user = candidate;
+    tweet.author = candidate; // Add this line for TweetCard compatibility
     return tweet;
   }
   const id = tryGetIdFromCandidate(candidate);
@@ -101,9 +611,11 @@ const resolveTweetUser = async (orig) => {
     const prof = await resolveProfileById(id);
     if (prof) {
       tweet.user = prof;
+      tweet.author = prof; // Add this line for TweetCard compatibility
       return tweet;
     }
     tweet.user = { _id: id };
+    tweet.author = { _id: id }; // Add this line for TweetCard compatibility
     return tweet;
   }
   return tweet;
@@ -166,7 +678,10 @@ export default function Profile() {
     setTweetsError("");
     try {
       const data = await getUserTweets(userId);
-      setTweets(Array.isArray(data) ? data : []);
+      const processedData = await Promise.all(
+        (Array.isArray(data) ? data : []).map(tweet => resolveTweetUser(tweet))
+      );
+      setTweets(processedData);
     } catch (err) {
       setTweetsError(err?.message || "Failed to load tweets");
       setTweets([]);
@@ -180,7 +695,11 @@ export default function Profile() {
     setRetweetsError("");
     try {
       const data = await getUserRetweets(userId);
-      setRetweets(Array.isArray(data) ? data : []);
+      // Process each retweet to ensure proper user structure
+      const processedData = await Promise.all(
+        (Array.isArray(data) ? data : []).map(tweet => resolveTweetUser(tweet))
+      );
+      setRetweets(processedData);
     } catch (err) {
       setRetweetsError(err?.message || "Failed to load retweets");
       setRetweets([]);
@@ -194,7 +713,11 @@ export default function Profile() {
     setQuotesError("");
     try {
       const data = await getUserQuotes(userId);
-      setQuotes(Array.isArray(data) ? data : []);
+      // Process each quote to ensure proper user structure
+      const processedData = await Promise.all(
+        (Array.isArray(data) ? data : []).map(tweet => resolveTweetUser(tweet))
+      );
+      setQuotes(processedData);
     } catch (err) {
       setQuotesError(err?.message || "Failed to load quotes");
       setQuotes([]);
@@ -294,7 +817,7 @@ export default function Profile() {
       >
         <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 w-full">
           <img
-            src={profile.profilePicture || "/default-avatar.png"}
+            src={profile.profilePicture || "https://img.freepik.com/premium-vector/default-avatar-profile-icon-social-media-user-image-gray-avatar-icon-blank-profile-silhouette-vector-illustration_561158-3485.jpg"}
             alt={profile.fullName || profile.userName}
             className="w-20 h-20 md:w-28 md:h-28 rounded-full border-2 border-gray-200 shadow-md object-cover hover:scale-105 transition-transform duration-300"
           />
@@ -338,12 +861,12 @@ export default function Profile() {
                 disabled={followLoading}
                 className="w-full md:w-auto px-4 py-2 rounded-lg"
               />
-              <Button
+              {/* <Button
                 text="Message"
                 styleType="secondary"
                 onClickHandler={() => alert("Open chat")}
                 className="w-full md:w-auto"
-              />
+              /> */}
             </div>
           )}
         </div>

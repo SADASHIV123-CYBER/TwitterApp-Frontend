@@ -128,7 +128,7 @@ function NavbarComponent() {
             }`}
           >
             <img
-              src={user.profilePicture || "/default-avatar.png"}
+              src={user.profilePicture || "https://img.freepik.com/premium-vector/default-avatar-profile-icon-social-media-user-image-gray-avatar-icon-blank-profile-silhouette-vector-illustration_561158-3485.jpg"}
               alt="profile"
               className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shadow-md border-2 border-yellow-300 transition-transform hover:scale-105"
             />
