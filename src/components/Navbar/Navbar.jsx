@@ -30,6 +30,7 @@ function NavbarComponent() {
   }, [user]);
 
   const profileLink = useMemo(() => {
+    
     return user ? `/profile/${user._id}` : "/login";
   }, [user]);
 

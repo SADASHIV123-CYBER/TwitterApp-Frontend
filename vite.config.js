@@ -10,7 +10,7 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/api': 'http://localhost:4000' // <-- CORRECT: proxy /api to backend port 4000
+      '/api': 'https://twitterapp-backend-85c9.onrender.com' // <-- CORRECT: proxy /api to backend port 4000
     }
   }
 })
