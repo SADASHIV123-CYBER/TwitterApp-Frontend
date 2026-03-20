@@ -54,7 +54,7 @@ function NavbarComponent() {
           className={`text-lg sm:text-xl font-bold hidden sm:block transition-colors
           ${darkMode ? "text-gray-100" : "text-gray-800"}`}
         >
-          TwitterX
+          Tweety
         </span>
       </Link>
 
